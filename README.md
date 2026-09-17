@@ -27,3 +27,17 @@ Nome comumente usado para problemas parecidos: **Home Health Care Routing and Sc
 
 ### Otimização do percurso
 - Motor gerador de rotas usando OpenStreetMap: <https://project-osrm.org/>
+
+## Ambiguidades
+
+- Quantidade de agentes fixa, ou o programa define?
+  - Permitir os 2
+- Rotas mensais em que todos são contemplados, diarias em que deve se atender ao máximo?
+  - Permitir os 2
+- A mesma pessoa pode ser visitada 2 vezes enquanto ainda há não visitados?
+  - Parâmetro 
+- Rota termina na UBS ou na casa do agente?
+  - Parâmetro por agente. Pode haver grupos para casos especiais (suposição)
+- Os agentes podem usar carro ou precisa ser a pé?
+  - Parâmetro por agente
+
