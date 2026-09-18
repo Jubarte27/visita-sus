@@ -1,13 +1,55 @@
 # visita-sus
 Objetivo definido em [Proposta.pdf](Proposta.pdf)
 
-## Problema
-Nome comumente usado para problemas parecidos: **Home Health Care Routing and Scheduling Problem (HHCRSP)**.
+## O que fazer
 
-## Requisitos que devem ser contemplados
-- Funcionar em tempo razoável para pelo menos 6000 pacientes, que é o dobro do tamanho [estipulado](https://www.gov.br/saude/pt-br/composicao/saps/esf/equipe-saude-da-familia/faq/qual-e-o-parametro-populacional-das-esf) para cada equipe de saúde da família
-  - O número real de paciente por região pode ser diferente, utilizar os mapas das APSs e atualizar este valor
-    - A maioria das ferramentas suporta bem mais do que isso, fazer um protótipo
+- **Percurso a pé:** sequenciamento diário de visitas sobre malha viária real no perfil pedestre.
+- **Urgência e prioridade clínica:** escore ponderado de risco, garantia de precedência no início do turno, teto de casos graves por agente e regra analítica para urgências surgidas no dia.
+- **Intervalo máximo:** penalização contínua do atraso em relação à periodicidade clínica de cada usuário.
+- **Equilibrar carga:** balanceamento min-max de jornada e reporte de demanda reprimida/desequilíbrio entre microáreas para dimensionamento.
+- **Visualização:** mapa interativo com rotas por ACS e conferência visual de regras clínicas.
+- **Reportar Falhas:** Demandas não atendidas, desequilíbrio entre microáreas, etc devem ser reportados a fim de requisito de mais recursos para a área. 
+
+## Como Fazer
+
+- **Modelagem (MDVRPTW/HHCRSP):**
+  - Eliminar pares (visita, agente) inviáveis antes de otimizar.
+  - Decomposição por microárea: subproblemas diários tratáveis de 10 a 20 visitas por ACS a partir da base populacional da eSF.
+  - Função objetivo multicritério normalizada em minutos: deslocamento a pé + penalidades de atraso + sobrecarga de jornada.
+  - Testes com cenários extremos (aglomerado, alta urgência, alto atraso)
+- **Arquitetura algorítmica em três camadas:**
+  1. *Construtiva rápida:* inserção gulosa de menor custo para solução inicial imediata (< 1 s).
+  2. *ALNS:* destruição/reparo adaptativo, aceitação por *Simulated Annealing* e sanitização determinística para ordenar urgências.
+  3. *MILP:* solucionador em instâncias pequenas para validação do *gap* de otimalidade.
+- **Georreferenciamento e dados:** OpenRouteService ou OSRM local (perfil pedestre) com cache local da matriz; dados sintéticos/anonimizados (LGPD).
+- **Validação experimental:** calibração formal (DoE/Taguchi), múltiplas sementes e comparação contra linhas de base (heurística gulosa e planejamento manual).
+- **Dashboard:** visualizador de mapas leve (Leaflet/OSM) com exportação de itinerários em CSV e infromações sobre demandas não atendidas.
+
+
+## Parâmetros
+
+### Agentes
+- jornada máxima diária
+- ponto de início e fim (UBS ou residência)
+- velocidade de caminhada
+- microárea de atuação
+
+### Pacientes
+- coordenadas geográficas
+- data da última visita
+- condição clínica e nível de risco
+- intervalo máximo recomendado entre visitas
+- duração estimada da visita
+- janela de horário de atendimento
+
+### Rotas e território
+- vias ou trechos excluídos
+
+### Otimização e pesos
+- peso do tempo de deslocamento
+- peso da penalidade de atraso
+- peso do excesso de jornada
+- peso relativo por condição clínica
 
 ## Ferramentas possivelmente úteis
 
@@ -18,7 +60,6 @@ Nome comumente usado para problemas parecidos: **Home Health Care Routing and Sc
 - Mapa das Unidades Básicas de Saúde da APS: <https://github.com/ms-deaps/mapas>
   - Mapa interativo: <https://mapas.sus.c3sl.ufpr.br>
   - Artigo que introduz: <https://www.scielosp.org/article/csc/2026.v31n5/e24432025/pt/>
-  - Confirmar com o professor se esse mapa corresponde as equipes que são referidas na proposta
 
 ### Mapas
 - Mapas open source: <https://www.openstreetmap.org>
@@ -26,18 +67,4 @@ Nome comumente usado para problemas parecidos: **Home Health Care Routing and Sc
 - Biblioteca em javascript para visualizar mapas: https://leafletjs.com/
 
 ### Otimização do percurso
-- Motor gerador de rotas usando OpenStreetMap: <https://project-osrm.org/>
-
-## Ambiguidades
-
-- Quantidade de agentes fixa, ou o programa define?
-  - Permitir os 2
-- Rotas mensais em que todos são contemplados, diarias em que deve se atender ao máximo?
-  - Permitir os 2
-- A mesma pessoa pode ser visitada 2 vezes enquanto ainda há não visitados?
-  - Parâmetro 
-- Rota termina na UBS ou na casa do agente?
-  - Parâmetro por agente. Pode haver grupos para casos especiais (suposição)
-- Os agentes podem usar carro ou precisa ser a pé?
-  - Parâmetro por agente
-
+- Motor gerador de rotas usando OpenStreetMap: <https://project-osrm.org/>, <https://openrouteservice.org/>
