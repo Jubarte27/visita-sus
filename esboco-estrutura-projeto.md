@@ -35,7 +35,7 @@ Solucionadores exatos como CPLEX e Xpress demoram horas para conseguir resolver 
 
 **Objetivos específicos:**
 
-1. Modelar o problema como HHCRSP, dividido por microárea, com pré-processamento de viabilidade temporal e de limites de jornada.
+1. Modelar o problema com elementos de OPTWVP e HHCRSP, dividido por microárea, com pré-processamento de viabilidade temporal e de limites de jornada.
 2. Implementar a arquitetura em dois estágios: construção gulosa, depois ALNS.
 3. Definir uma função objetivo multicritério, normalizada em minutos, agregando o tempo de caminhada, o equilíbrio de jornada e a penalidade proporcional aos dias de atraso desde a última visita.
 4. Garantir a precedência de urgência e teto de casos por agente.
@@ -48,7 +48,7 @@ Solucionadores exatos como CPLEX e Xpress demoram horas para conseguir resolver 
 
 ### 5.1 Fundamentação teórica
 
-O **HHCRSP** estende o roteamento com janelas de tempo ao combinar atribuição de visitas a profissionais, sequenciamento e restrições de atendimento e jornada. Essa estrutura fundamenta o projeto, embora os trabalhos estudem principalmente serviços de enfermagem e hospitalização domiciliar, com condições distintas das visitas de ACS.
+O **HHCRSP** estende o roteamento com janelas de tempo ao combinar atribuição de visitas a profissionais, sequenciamento e restrições de atendimento e jornada. O **OPTWVP** modela 1 profissional em sua área específica e com um orçamento de tempo, além de diferentes pesos para diferentes pacientes. Essa estrutura fundamenta o projeto, embora os trabalhos estudem principalmente serviços de enfermagem e hospitalização domiciliar, com condições distintas das visitas de ACS.
 
 Para resolver o problema, Neves (2026) combina construção gulosa e **ALNS**: o algoritmo remove e reinsere visitas, adaptando a escolha dos operadores conforme seu desempenho. Özsakallı (2023) também emprega ALNS, com operadores próprios para transporte compartilhado. Esses trabalhos sustentam a arquitetura proposta; o modelo **MILP** será usado como referência em instâncias pequenas. A vantagem das heurísticas depende da formulação e dos dados: Abdolhamidi e Lurkin (2026) obtêm resultados competitivos com MILP reforçado por pré-processamento, portanto não cabe descartar métodos exatos de forma geral.
 
@@ -77,7 +77,7 @@ No mercado, a API **Timefold Field Service Routing** documenta atribuição e ro
 
 ### 5.4 Lacuna e posicionamento do projeto
 
-Nenhum dos seis trabalhos aborda especificamente ACS na APS brasileira. Além disso, o conjunto não trata o atraso em relação ao intervalo máximo entre visitas como critério central: frequência previamente definida e estabilidade do horário de atendimento são conceitos distintos da decisão sobre quando revisitar um usuário.
+Nenhum dos seis trabalhos aborda especificamente ACS na APS brasileira. Além disso, o conjunto não trata o atraso em relação ao intervalo máximo entre visitas como critério: frequência previamente definida e estabilidade do horário de atendimento são conceitos distintos da decisão sobre quando revisitar um usuário.
 
 A contribuição pretendida é adaptar métodos existentes para reunir **rotas a pé, prioridade clínica, atraso entre visitas e diagnóstico de sobrecarga por microárea**. Com territórios fixos, o balanceamento deve respeitar as atribuições permitidas; diferenças que não puderem ser resolvidas pelo planejamento serão reportadas à gestão. A avaliação comparará a construção gulosa, a ALNS e, quando disponível, o plano manual, medindo deslocamento, atrasos, carga e demanda não atendida. Os percentuais dos estudos serão referências de comparação, não metas presumidas para o SUS.
 
