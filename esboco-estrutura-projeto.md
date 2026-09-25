@@ -4,14 +4,14 @@ O projeto prevê a criação de uma ferramenta computacional para ajudar Agentes
 
 Hoje o planejamento é manual com divisão por microárea. Contar apenas com a lógica informal pode facilmente gerar desequilíbrio de carga entre agentes, entre outras situações subótimas.
 
-A proposta é modelar o problema como uma variante do *Problema de Roteamento de Veículos com Janelas de Tempo* (VRPTW) chamada *Problema de Roteamento e Agendamento de Cuidados de Saúde ao Domicílio* (HHCRSP). A solução se dá em 2 etapas:
+A proposta é modelar o problema como uma variante do *Problema de Orientação com Janelas de Tempo e Lucros Variáveis* (OPTWVP) com elementos do *Problema de Roteamento e Agendamento de Cuidados de Saúde ao Domicílio* (HHCRSP). A solução se dá em 2 etapas:
 
 1. construção rápida e gulosa,
 2. algoritmo de *Busca Adaptativa em Grandes Vizinhanças* (ALNS) para refinar a solução.
 
 As distâncias são calculadas em perfil pedestre, e um dashboard permite conferir as rotas.
 
-Palavras-chave: Roteirização em Saúde Domiciliar; HHCRSP; Atenção Primária à Saúde; Otimização de Rotas a Pé; ALNS.
+Palavras-chave: Roteirização em Saúde Domiciliar; HHCRSP; OPTWVP; Atenção Primária à Saúde; Otimização de Rotas a Pé; ALNS.
 
 ## 2. Introdução e Contextualização
 
