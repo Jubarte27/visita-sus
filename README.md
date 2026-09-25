@@ -60,6 +60,7 @@ Objetivo definido em [Proposta.pdf](Proposta.pdf)
 - Mapa das Unidades Básicas de Saúde da APS: <https://github.com/ms-deaps/mapas>
   - Mapa interativo: <https://mapas.sus.c3sl.ufpr.br>
   - Artigo que introduz: <https://www.scielosp.org/article/csc/2026.v31n5/e24432025/pt/>
+- Mapa de setores censitários (possível placeholder para microáreas): <https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/26565-malhas-de-setores-censitarios-divisoes-intramunicipais.html>
 
 ### Mapas
 - Mapas open source: <https://www.openstreetmap.org>
