@@ -81,7 +81,42 @@ Nenhum dos seis trabalhos aborda especificamente ACS na APS brasileira. Além di
 
 A contribuição pretendida é adaptar métodos existentes para reunir **rotas a pé, prioridade clínica, atraso entre visitas e diagnóstico de sobrecarga por microárea**. Com territórios fixos, o balanceamento deve respeitar as atribuições permitidas; diferenças que não puderem ser resolvidas pelo planejamento serão reportadas à gestão. A avaliação comparará a construção gulosa, a ALNS e, quando disponível, o plano manual, medindo deslocamento, atrasos, carga e demanda não atendida. Os percentuais dos estudos serão referências de comparação, não metas presumidas para o SUS.
 
-### 5.5 Referências científicas
+## 6. Metodologia
+
+### Fonte de dados
+
+Como não há dados públicos de visitas de ACS, serão usados dados artificiais: a microárea é representada por setores censitários, os caminhos a pé são extraídos com osmnx a partir do mapa viário, e os pontos de visita são casas sorteadas em áreas residenciais, com pesos (urgência, periodicidade) atribuídos artificialmente.
+
+### Arquitetura / algoritmia
+
+A técnica central é um algoritmo de duas etapas: uma construção inicial gulosa, que monta uma rota viável respeitando urgência e janelas de tempo, seguida de refinamento por ALNS, que remove e reinsere visitas por meio de operadores destrutivos/construtivos escolhidos adaptativamente conforme seu desempenho. O algoritmo é executado múltiplas vezes, com sementes diferentes, mantendo-se a melhor solução obtida. Para instâncias pequenas, uma formulação MILP é usada como referência de qualidade da solução.
+
+### Ambiente de desenvolvimento
+
+Python como linguagem principal; osmnx, geopandas, fudgeo e gpxpy (entre outras possíveis) para extração e manipulação de dados geoespaciais; numpy e bibliotecas afins para apoio matemático.
+
+### Plano de validação
+
+A validação compara a solução da ALNS com três referências: a construção gulosa isolada, uma formulação MILP (para obter o ótimo em instâncias pequenas) e, quando disponível, uma solução feita manualmente por uma pessoa.
+
+
+
+## 7. Resultados esperados
+
+Espera-se entregar um protótipo funcional de roteirização e escalonamento diário a pé para ACS na APS/SUS, construído em duas etapas (construção gulosa e refinamento por ALNS), que considere urgência clínica, intervalo máximo entre visitas e balanceamento de carga entre agentes.
+
+Como resultados concretos, o projeto deve produzir:
+
+1. um modelo matemático do problema, com função objetivo multicritério normalizada em minutos (deslocamento, equilíbrio de jornada e atraso entre visitas);
+2. uma implementação do algoritmo de duas etapas, com matriz de distâncias em perfil pedestre (OpenRouteService ou OSRM) e cache local;
+3. uma avaliação comparativa entre a construção gulosa, a ALNS, o planejamento manual (quando disponível) e, em instâncias pequenas, uma formulação MILP de referência, usando múltiplas sementes;
+4. um dashboard (Leaflet/OSM) para conferência das rotas, exportação de itinerários em GPX e relatório de demanda não atendida e de desequilíbrio entre microáreas.
+
+Espera-se que a ALNS produza soluções melhores que a construção gulosa isolada e competitivas com o planejamento manual existente, com ganhos sobretudo em equidade de carga, atendimento tempestivo de urgências e visibilidade de dados para a gestão — e não necessariamente em redução de distância percorrida, já que a divisão por microárea já tende a produzir bons tempos de deslocamento. Os percentuais de ganho reportados na literatura (seção 5) servem apenas como referência de comparação, não como metas presumidas para o contexto do SUS: os resultados reais dependerão dos dados e das instâncias avaliadas, e serão reportados com suas limitações.
+
+## 8. Cronograma
+
+## 9. Referências
 
 - ABDOLHAMIDI, D.; LURKIN, V. **An Integrated Optimization Model for Home Healthcare Routing and Scheduling with Synchronization, Break Scheduling, and Temporal Stability**. Preprint, 2026. [Texto consultado](artigos/abdolhamidi.pdf).
 - CATTAFI, M. et al. **An application of constraint solving for home health care**. AI Communications, v. 28, n. 2, p. 215–237, 2015. [Texto consultado](artigos/cattafi.pdf).
