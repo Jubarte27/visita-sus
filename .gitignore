@@ -1,0 +1,7 @@
+.venv
+data/*
+*.gpkg
+*.graphml
+
+cache
+__pycache__
