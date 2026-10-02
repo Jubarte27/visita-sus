@@ -25,23 +25,37 @@ A revisão de literatura reuniu 6 trabalhos publicados entre 2011 e 2026: *Traut
 
 Reduzir o tempo de deslocamento não é o principal ganho esperado. A microárea do ACS já é uma divisão territorial contígua, parecida com o caso de Cattafi et al. (2015), no qual a divisão manual já produzia bons tempos de viagem, embora falhasse em equidade de carga e continuidade do cuidado.
 
-O ganho esperado está em garantir que urgências sejam atendidas a tempo, disponibilizar dados para justificar a necessidade do aumento das equipes, equilibrar a carga entre agentes e priorizar corretamente os casos clínicos.
+O ganho esperado está em garantir que urgências sejam atendidas a tempo, respeitar o limite de jornada de cada agente, priorizar corretamente os casos clínicos e disponibilizar dados que evidenciem o desequilíbrio de carga entre microáreas, justificando a necessidade de aumento das equipes.
 
 Solucionadores exatos como CPLEX e Xpress demoram horas para conseguir resolver instâncias médias/grandes. Isso torna inviável atingir a solução ótima em tempo para uso no cotidiano, mas abre espaço para soluções heurísticas que atinjam resultados mais próximos do ótimo.
 
 ## 4. Objetivos
 
-**Objetivo geral:** modelar e implementar um protótipo de roteirização e escalonamento diário a pé para ACS na APS/SUS. O protótipo deve considerar urgência clínica, intervalo máximo entre visitas e balanceamento de carga, além de ser validado contra uma linha de base gulosa ou manual.
+**Objetivo geral:** modelar e implementar um protótipo de roteirização e escalonamento diário a pé para ACS na APS/SUS. O protótipo deve considerar urgência clínica, intervalo máximo entre visitas e limite de jornada do agente, além de ser validado contra uma linha de base gulosa ou manual.
 
 **Objetivos específicos:**
 
-1. Modelar o problema com elementos de OPTWVP e HHCRSP, dividido por microárea, com pré-processamento de viabilidade temporal e de limites de jornada.
+1. Modelar o problema com elementos de OPTWVP e HHCRSP, resolvido de forma independente para cada ACS em sua microárea, com pré-processamento de viabilidade temporal e de limites de jornada.
 2. Implementar a arquitetura em dois estágios: construção gulosa, depois ALNS.
-3. Definir uma função objetivo multicritério, normalizada em minutos, agregando o tempo de caminhada, o equilíbrio de jornada e a penalidade proporcional aos dias de atraso desde a última visita.
+3. Definir uma função objetivo multicritério, normalizada em minutos, agregando o tempo de caminhada, o excesso sobre a jornada do agente e a penalidade proporcional aos dias de atraso desde a última visita.
 4. Garantir a precedência de urgência e teto de casos por agente.
-5. Integrar uma matriz de distâncias em perfil pedestre, usando OpenRouteService ou OSRM, com cache local.
+5. Integrar uma matriz de tempos a pé calculada sobre a malha de caminhos do OpenStreetMap (osmnx), com cache local.
 6. Validar o modelo, com múltiplas sementes, comparando com uma heurística gulosa e com o planejamento manual, além de usar Programação Linear Inteira Mista (MILP) para casos pequenos.
 7. Construir um dashboard em Leaflet/OSM, com exportação de itinerários e relatório de demanda não atendida e desequilíbrio entre microáreas.
+
+### 4.1 Escopo e delimitação
+
+A unidade de planejamento é **um ACS, em um dia, dentro da sua microárea**. As microáreas são fixas e o vínculo entre o agente e as famílias do seu território faz parte do trabalho na APS; por isso, o sistema não transfere visitas de um agente para outro.
+
+| Está no escopo | Fica fora do escopo |
+|---|---|
+| Seleção e sequenciamento diário das visitas de cada ACS | Redistribuição de visitas entre agentes ou cobertura de microáreas descobertas |
+| Prioridade clínica, urgência e atraso em relação ao intervalo máximo entre visitas | Planejamento de vários dias de uma só vez (cada dia é otimizado com o estado atualizado das visitas) |
+| Limite de jornada e teto de casos graves por agente | Redesenho das microáreas |
+| Relatório agregado de demanda não atendida e de sobrecarga por microárea | Uso de dados reais de pacientes e integração com o e-SUS Território |
+| Dados sintéticos, gerados sobre mapas reais | Aplicativo móvel para uso em campo |
+
+**Coordenação entre planejamentos.** Como as microáreas não se sobrepõem, os planos de agentes diferentes não competem pelas mesmas visitas e podem ser calculados de forma independente (inclusive em paralelo). A coordenação acontece no nível da gestão: depois que todos os planos do dia são calculados, o sistema reúne em um relatório por equipe as visitas que ficaram de fora, os atrasos acumulados e a carga de cada microárea. Esse relatório é o subsídio para a gestão redimensionar as equipes ou rever as microáreas; essa decisão permanece humana.
 
 ## 5. Revisão de Literatura e Soluções de Mercado
 
@@ -52,7 +66,7 @@ O **HHCRSP** estende o roteamento com janelas de tempo ao combinar atribuição 
 
 Para resolver o problema, Neves (2026) combina construção gulosa e **ALNS**: o algoritmo remove e reinsere visitas, adaptando a escolha dos operadores conforme seu desempenho. Özsakallı (2023) também emprega ALNS, com operadores próprios para transporte compartilhado. Esses trabalhos sustentam a arquitetura proposta; o modelo **MILP** será usado como referência em instâncias pequenas. A vantagem das heurísticas depende da formulação e dos dados: Abdolhamidi e Lurkin (2026) obtêm resultados competitivos com MILP reforçado por pré-processamento, portanto não cabe descartar métodos exatos de forma geral.
 
-Na função objetivo, Trautsamwieser e Hirsch (2011) agregam critérios em uma escala temporal comum, fundamentando a conversão das penalidades do projeto para minutos equivalentes. Para o equilíbrio de carga, Cattafi et al. (2015) mostram que minimizar desvios entre jornadas pode induzir deslocamentos desnecessários para igualá-las. Isso favorece o critério de minimizar a maior jornada, avaliado em conjunto com o tempo total de caminhada.
+Na função objetivo, Trautsamwieser e Hirsch (2011) agregam critérios em uma escala temporal comum, fundamentando a conversão das penalidades do projeto para minutos equivalentes. Para o equilíbrio de carga, Cattafi et al. (2015) mostram que minimizar desvios entre jornadas pode induzir deslocamentos desnecessários para igualá-las. Como as microáreas do projeto são fixas, não se busca igualar jornadas entre agentes: cada plano respeita o limite de jornada do próprio ACS, e as diferenças de carga entre microáreas são medidas e reportadas.
 
 ### 5.2 Trabalhos relacionados
 
@@ -79,42 +93,161 @@ No mercado, a API **Timefold Field Service Routing** documenta atribuição e ro
 
 Nenhum dos seis trabalhos aborda especificamente ACS na APS brasileira. Além disso, o conjunto não trata o atraso em relação ao intervalo máximo entre visitas como critério: frequência previamente definida e estabilidade do horário de atendimento são conceitos distintos da decisão sobre quando revisitar um usuário.
 
-A contribuição pretendida é adaptar métodos existentes para reunir **rotas a pé, prioridade clínica, atraso entre visitas e diagnóstico de sobrecarga por microárea**. Com territórios fixos, o balanceamento deve respeitar as atribuições permitidas; diferenças que não puderem ser resolvidas pelo planejamento serão reportadas à gestão. A avaliação comparará a construção gulosa, a ALNS e, quando disponível, o plano manual, medindo deslocamento, atrasos, carga e demanda não atendida. Os percentuais dos estudos serão referências de comparação, não metas presumidas para o SUS.
+A contribuição pretendida é adaptar métodos existentes para reunir **rotas a pé, prioridade clínica, atraso entre visitas e diagnóstico de sobrecarga por microárea**. Com territórios fixos, o planejamento não redistribui visitas entre agentes; diferenças de carga entre microáreas serão reportadas à gestão. A avaliação comparará a construção gulosa, a ALNS e, quando disponível, o plano manual, medindo deslocamento, atrasos, carga e demanda não atendida. Os percentuais dos estudos serão referências de comparação, não metas presumidas para o SUS.
 
 ## 6. Metodologia
 
-### Fonte de dados
+### 6.1 Visão geral do artefato
 
-Como não há dados públicos de visitas de ACS, serão usados dados artificiais: a microárea é representada por setores censitários, os caminhos a pé são extraídos com osmnx a partir do mapa viário, e os pontos de visita são casas sorteadas em áreas residenciais, com pesos (urgência, periodicidade) atribuídos artificialmente.
+O artefato é um programa em Python que, para cada ACS e cada dia, recebe o cadastro dos usuários da microárea e devolve o roteiro do dia: **quais** domicílios visitar, **em que ordem**, **em que horário** e **por qual caminho**. Ele é organizado em cinco módulos encadeados:
 
-### Arquitetura / algoritmia
+| Módulo | Entrada | O que faz | Saída |
+|---|---|---|---|
+| **M1. Gerador de instâncias** | Setor censitário (IBGE) e mapa do OpenStreetMap | Recorta a microárea, extrai a malha de caminhos a pé e sorteia domicílios e usuários com atributos clínicos sintéticos | Instância: UBS, domicílios, usuários e ACS |
+| **M2. Matriz de tempos a pé** | Malha de caminhos e pontos da instância | Calcula o caminho mínimo entre todos os pares de pontos e converte distância em minutos | Matriz de tempos, salva em cache |
+| **M3. Pré-processamento** | Instância e data do planejamento | Calcula atraso e prioridade de cada usuário, identifica urgências e descarta visitas inviáveis | Visitas candidatas do dia |
+| **M4. Otimizador** | Candidatas, matriz e parâmetros | Construção gulosa seguida de ALNS, com várias sementes | Roteiro do dia e lista de visitas que ficaram de fora |
+| **M5. Saídas** | Roteiros de todos os ACS da equipe | Gera itinerários, arquivos GPX, mapa e relatório por microárea | Itinerários, mapa Leaflet e relatório da equipe |
 
-A técnica central é um algoritmo de duas etapas: uma construção inicial gulosa, que monta uma rota viável respeitando urgência e janelas de tempo, seguida de refinamento por ALNS, que remove e reinsere visitas por meio de operadores destrutivos/construtivos escolhidos adaptativamente conforme seu desempenho. O algoritmo é executado múltiplas vezes, com sementes diferentes, mantendo-se a melhor solução obtida. Para instâncias pequenas, uma formulação MILP é usada como referência de qualidade da solução.
+M1 e M2 existem porque não há dados reais disponíveis; numa implantação, seriam substituídos pela leitura do cadastro do e-SUS Território e por uma matriz calculada uma vez por microárea. M3, M4 e M5 formam o núcleo reutilizável. Cada ACS é processado de forma independente (seção 4.1), e só o M5 junta os resultados da equipe.
 
-### Ambiente de desenvolvimento
+### 6.2 Dados de entrada (instâncias sintéticas)
 
-Python como linguagem principal; osmnx, geopandas, fudgeo e gpxpy (entre outras possíveis) para extração e manipulação de dados geoespaciais; numpy e bibliotecas afins para apoio matemático.
+Como não há dados públicos de visitas de ACS, as instâncias são geradas artificialmente sobre mapas reais:
 
-### Plano de validação
+- **Território:** cada microárea é representada por um setor censitário da malha do IBGE. A malha de caminhos a pé do setor, com uma pequena faixa ao redor para não cortar caminhos na borda, é extraída do OpenStreetMap com osmnx (perfil `walk`).
+- **Domicílios:** pontos sorteados sobre edificações ou áreas residenciais do OSM dentro do setor, cada um associado ao nó mais próximo da malha.
+- **Usuários:** cada domicílio recebe um ou mais usuários com atributos sintéticos: condição de acompanhamento (por exemplo, gestante, pessoa idosa, hipertensão ou diabetes, tuberculose em tratamento, acamado ou nenhuma condição especial), nível de risco, intervalo máximo entre visitas, data da última visita, duração estimada da visita e, quando houver, janela de horário. Os valores seguem distribuições definidas pelo grupo; são ilustrativos, não clínicos.
+- **ACS e UBS:** ponto de início e fim do turno (a UBS), duração da jornada de campo (por exemplo, 6 h), velocidade de caminhada (por exemplo, 4,5 km/h) e teto de casos graves por dia. Todos são parâmetros configuráveis.
 
-A validação compara a solução da ALNS com três referências: a construção gulosa isolada, uma formulação MILP (para obter o ótimo em instâncias pequenas) e, quando disponível, uma solução feita manualmente por uma pessoa.
+Além de um cenário-base, serão geradas variações para testar o comportamento do algoritmo: domicílios aglomerados, alta proporção de urgências e alto atraso acumulado.
 
+### 6.3 Matriz de tempos a pé
 
+O tempo entre dois pontos é o comprimento do caminho mínimo na malha de pedestres (algoritmo de Dijkstra, via networkx) dividido pela velocidade de caminhada. A matriz é calculada uma vez por instância e salva em disco, de modo que as execuções do otimizador não recalculam caminhos. A sequência de nós de cada caminho também é guardada, para desenhar a rota no mapa e gerar o GPX. OpenRouteService ou OSRM com perfil pedestre são alternativas equivalentes, caso a extração local se mostre lenta.
+
+### 6.4 Modelo do problema diário
+
+Para um ACS em um dia, o problema é escolher **quais** visitas candidatas fazer e **em que ordem**, saindo da UBS e voltando a ela. Como nem todos os usuários cabem na jornada, trata-se de um problema de orientação (OPTWVP): cada visita tem um "lucro", que é a penalidade evitada ao fazê-la hoje, e o tempo do dia é o orçamento disponível.
+
+**Notação**
+
+| Símbolo | Significado |
+|---|---|
+| $V$ | visitas candidatas do dia; $0$ representa a UBS |
+| $t_{ij}$ | tempo a pé de $i$ até $j$ (min) |
+| $s_i$ | duração da visita $i$ (min) |
+| $[a_i, b_i]$ | janela de horário da visita $i$ |
+| $d_i$ | dias desde a última visita ao usuário $i$ |
+| $P_i$ | intervalo máximo recomendado entre visitas (dias) |
+| $w_i$ | peso clínico (nível de risco) |
+| $U \subseteq V$ | visitas urgentes |
+| $G \subseteq V$ | casos graves; $K$ é o teto de casos graves por dia |
+| $T$, $T_{max}$ | jornada nominal e jornada máxima tolerada (min) |
+
+**Decisões:** $y_i \in \{0,1\}$ indica se a visita $i$ é feita hoje; $x_{ij} \in \{0,1\}$ indica se o ACS vai de $i$ diretamente para $j$; $h_i$ é o horário de chegada em $i$; $H$ é o horário de retorno à UBS.
+
+**Função objetivo (em minutos equivalentes):**
+
+$$
+\min \;\; \underbrace{\sum_{i,j} t_{ij}\,x_{ij}}_{\text{caminhada}}
+\;+\; \beta \underbrace{\sum_{i \in V} w_i \,\frac{d_i + 1}{P_i}\,(1 - y_i)}_{\text{penalidade de quem fica para depois}}
+\;+\; \gamma \underbrace{\max(0,\; H - T)}_{\text{excesso de jornada}}
+$$
+
+O segundo termo é o centro do modelo. Se o usuário $i$ não for visitado hoje, amanhã terão se passado $d_i + 1$ dias desde a última visita; a razão $(d_i + 1)/P_i$ mede quanto do intervalo máximo terá sido consumido (acima de 1, o usuário está atrasado). Multiplicada pelo peso clínico, ela cresce continuamente com o tempo sem visita e com o risco: deixar de fora quem está atrasado e é de alto risco custa caro, e deixar de fora quem foi visitado recentemente custa pouco. Os coeficientes $\beta$ (minutos por unidade de penalidade) e $\gamma$ (minutos por minuto de excesso) convertem os três termos para a mesma escala, como em Trautsamwieser e Hirsch (2011), e serão calibrados nos experimentos.
+
+**Restrições:**
+
+1. **Rota:** o roteiro sai da UBS e volta a ela; cada visita feita tem exatamente uma chegada e uma saída ($\sum_j x_{ij} = \sum_j x_{ji} = y_i$).
+2. **Tempo:** se o ACS vai de $i$ para $j$, chega em $j$ depois de terminar $i$ e caminhar até $j$ ($h_j \ge h_i + s_i + t_{ij}$). Essa restrição também impede subciclos.
+3. **Janelas:** visitas com horário marcado começam dentro da janela ($a_i \le h_i \le b_i$).
+4. **Jornada:** o retorno à UBS não ultrapassa a jornada máxima ($H \le T_{max}$).
+5. **Urgência:** toda urgência é visitada ($y_i = 1$ para $i \in U$) e antes de qualquer visita não urgente.
+6. **Teto de casos graves:** $\sum_{i \in G} y_i \le K$.
+
+Se as urgências sozinhas não couberem na jornada, o excedente é registrado como demanda não atendida e vai para o relatório da equipe.
+
+**Urgências que surgem durante o dia.** Não se reotimiza o dia inteiro: a nova urgência é inserida logo após a visita em andamento, partindo da posição atual do ACS. Se isso ultrapassar $T_{max}$, retiram-se do restante do roteiro as visitas não urgentes de menor penalidade até que o roteiro volte a caber na jornada. As visitas retiradas entram no relatório.
+
+### 6.5 Algoritmo de solução
+
+**Etapa 1: construção gulosa**
+
+1. Começa com o roteiro vazio (UBS → UBS).
+2. Insere as urgências primeiro, em ordem de vizinho mais próximo a partir da UBS.
+3. Para cada candidata ainda fora do roteiro, calcula a melhor posição de inserção (a que menos aumenta o tempo, respeitando janelas, jornada e teto) e a razão *penalidade evitada ÷ minutos acrescentados*. Insere a candidata com a maior razão.
+4. Repete o passo 3 até que nenhuma candidata caiba.
+
+O resultado é uma solução viável obtida em fração de segundo, já que cada dia tem algumas dezenas de candidatas para 10 a 20 visitas.
+
+**Etapa 2: ALNS (Busca Adaptativa em Grandes Vizinhanças)**
+
+A solução gulosa é refinada por iterações de "destruir e reparar":
+
+1. **Destruição:** remove de 10% a 40% das visitas do roteiro, com um dos operadores:
+   - *aleatória*: remove visitas sorteadas;
+   - *pior custo*: remove as visitas que mais aumentam a caminhada em relação à penalidade que evitam;
+   - *geográfica*: remove uma visita e suas vizinhas mais próximas, abrindo espaço para reorganizar um trecho inteiro.
+2. **Reparo:** reinsere visitas, tanto as removidas quanto as que já estavam fora do roteiro, com um dos operadores:
+   - *inserção gulosa*: mesmo critério da etapa 1;
+   - *inserção por arrependimento (regret-2)*: prioriza a visita que mais perderia se não fosse inserida agora em sua melhor posição.
+3. **Sanitização:** as urgências são recolocadas no início do roteiro, garantindo a precedência mesmo que algum operador a tenha quebrado.
+4. **Aceitação (Simulated Annealing):** a nova solução substitui a atual se for melhor. Se for pior por uma diferença $\Delta$, é aceita com probabilidade $e^{-\Delta/\tau}$, em que a temperatura $\tau$ diminui ao longo das iterações. Isso permite escapar de ótimos locais no início e estabilizar no fim.
+5. **Adaptação:** cada operador ganha pontos quando gera uma nova melhor solução, uma melhora ou uma solução aceita. A cada bloco de iterações, a probabilidade de escolher cada operador é atualizada de acordo com esses pontos, de forma que os operadores mais úteis para a instância passam a ser usados com mais frequência.
+
+O laço termina por número de iterações ou por tempo limite (alvo: poucos segundos por ACS). A ALNS é executada com várias sementes aleatórias; entrega-se a melhor solução e reporta-se a variação entre as sementes.
+
+**Etapa 3: referência exata (MILP)**
+
+O modelo da seção 6.4 é escrito como programa linear inteiro misto (com a restrição de tempo linearizada por "big-M") e resolvido por um solver (OR-Tools ou PuLP com CBC/HiGHS) em instâncias pequenas, para medir a distância (*gap*) entre a solução da ALNS e o ótimo. Essa etapa serve só para validação e não faz parte do uso cotidiano.
+
+### 6.6 Saídas
+
+- **Itinerário por ACS:** lista ordenada de visitas com horário previsto de chegada e saída, tempo de caminhada entre elas e motivo de cada visita (urgência, atraso ou risco). É exportado em CSV e em GPX (gpxpy), este com o trajeto real pela malha, para abrir em aplicativos de mapa no celular.
+- **Mapa (Leaflet/OSM):** rota de cada ACS, domicílios coloridos por prioridade e marcação dos usuários que ficaram de fora.
+- **Relatório da equipe:** por microárea, número de candidatas e de visitas planejadas, usuários não atendidos com seus atrasos e pesos, jornada usada e excesso, e a penalidade residual em minutos, que indica quanto trabalho "não coube" no dia. É esse relatório que sustenta pedidos de reforço da equipe ou de revisão das microáreas.
+
+### 6.7 Ambiente de desenvolvimento
+
+Python como linguagem principal; osmnx e networkx para a malha de caminhos e os caminhos mínimos; geopandas e fudgeo para os dados geoespaciais; numpy para o cálculo; gpxpy para os arquivos GPX; folium para o mapa em Leaflet; OR-Tools ou PuLP para o MILP. A lista não é exaustiva: outras dependências podem surgir durante o desenvolvimento.
+
+### 6.8 Plano de validação
+
+- **Comparações:** a ALNS é comparada com (i) a construção gulosa isolada, (ii) a solução ótima do MILP em instâncias pequenas e (iii) um planejamento feito manualmente por uma pessoa sobre o mesmo mapa, também em instâncias pequenas.
+- **Métricas:** tempo total de caminhada; urgências atendidas e sua posição no roteiro; penalidade residual e número de usuários atrasados que ficaram de fora; jornada usada e excesso; número de visitas no dia; tempo de execução; *gap* em relação ao MILP; variação entre sementes.
+- **Cenários:** base, domicílios aglomerados, alta proporção de urgências e alto atraso acumulado.
+- **Calibração:** os pesos $\beta$ e $\gamma$ e os parâmetros da ALNS (taxa de destruição, temperatura inicial, fator de resfriamento) são ajustados num experimento preliminar antes das comparações.
 
 ## 7. Resultados esperados
 
-Espera-se entregar um protótipo funcional de roteirização e escalonamento diário a pé para ACS na APS/SUS, construído em duas etapas (construção gulosa e refinamento por ALNS), que considere urgência clínica, intervalo máximo entre visitas e balanceamento de carga entre agentes.
+Espera-se entregar um protótipo funcional de roteirização e escalonamento diário a pé para ACS na APS/SUS, construído em duas etapas (construção gulosa e refinamento por ALNS), que considere urgência clínica, intervalo máximo entre visitas e limite de jornada de cada agente.
 
 Como resultados concretos, o projeto deve produzir:
 
-1. um modelo matemático do problema, com função objetivo multicritério normalizada em minutos (deslocamento, equilíbrio de jornada e atraso entre visitas);
-2. uma implementação do algoritmo de duas etapas, com matriz de distâncias em perfil pedestre (OpenRouteService ou OSRM) e cache local;
+1. um modelo matemático do problema, com função objetivo multicritério normalizada em minutos (deslocamento, excesso de jornada e atraso entre visitas);
+2. uma implementação do algoritmo de duas etapas, com matriz de tempos a pé calculada sobre o OpenStreetMap (osmnx) e cache local;
 3. uma avaliação comparativa entre a construção gulosa, a ALNS, o planejamento manual (quando disponível) e, em instâncias pequenas, uma formulação MILP de referência, usando múltiplas sementes;
-4. um dashboard (Leaflet/OSM) para conferência das rotas, exportação de itinerários em GPX e relatório de demanda não atendida e de desequilíbrio entre microáreas.
+4. um dashboard (Leaflet/OSM) para conferência das rotas, exportação de itinerários em CSV e GPX e relatório de demanda não atendida e de desequilíbrio entre microáreas.
 
-Espera-se que a ALNS produza soluções melhores que a construção gulosa isolada e competitivas com o planejamento manual existente, com ganhos sobretudo em equidade de carga, atendimento tempestivo de urgências e visibilidade de dados para a gestão — e não necessariamente em redução de distância percorrida, já que a divisão por microárea já tende a produzir bons tempos de deslocamento. Os percentuais de ganho reportados na literatura (seção 5) servem apenas como referência de comparação, não como metas presumidas para o contexto do SUS: os resultados reais dependerão dos dados e das instâncias avaliadas, e serão reportados com suas limitações.
+Espera-se que a ALNS produza soluções melhores que a construção gulosa isolada e competitivas com o planejamento manual existente, com ganhos sobretudo no respeito à jornada, atendimento tempestivo de urgências e visibilidade de dados para a gestão — e não necessariamente em redução de distância percorrida, já que a divisão por microárea já tende a produzir bons tempos de deslocamento. Os percentuais de ganho reportados na literatura (seção 5) servem apenas como referência de comparação, não como metas presumidas para o contexto do SUS: os resultados reais dependerão dos dados e das instâncias avaliadas, e serão reportados com suas limitações.
 
 ## 8. Cronograma
+
+O projeto deve ser concluído em 2 a 3 semanas, com acompanhamento semanal. As semanas são contadas a partir desta entrega.
+
+| Atividade | Concluído | Semana 1 | Semana 2 | Semana 3 |
+|---|:-:|:-:|:-:|:-:|
+| Definição do problema, revisão de literatura e proposta | X | | | |
+| OE1 — Modelagem e pré-processamento de viabilidade | | X | | |
+| OE5 — Geração de dados sintéticos e matriz de distâncias a pé | | X | | |
+| OE2 — Construção gulosa e ALNS | | X | X | |
+| OE3 e OE4 — Função objetivo, precedência de urgência e teto de casos | | | X | |
+| OE6 — Validação (múltiplas sementes, comparação com guloso e manual; MILP em instâncias pequenas) | | | X | X |
+| OE7 — Dashboard e relatório por microárea | | | | X |
+| Escrita do texto e apresentações semanais | | X | X | X |
+
+A semana 3 funciona como margem. Se o prazo final for antecipado, a prioridade é entregar o algoritmo (guloso + ALNS) e sua comparação com a construção gulosa; a referência MILP e o dashboard são reduzidos ao mínimo necessário (por exemplo, um mapa estático das rotas e o relatório em tabela).
 
 ## 9. Referências
 

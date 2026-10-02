@@ -6,24 +6,24 @@ Objetivo definido em [Proposta.pdf](Proposta.pdf)
 - **Percurso a pé:** sequenciamento diário de visitas sobre malha viária real no perfil pedestre.
 - **Urgência e prioridade clínica:** escore ponderado de risco, garantia de precedência no início do turno, teto de casos graves por agente e regra analítica para urgências surgidas no dia.
 - **Intervalo máximo:** penalização contínua do atraso em relação à periodicidade clínica de cada usuário.
-- **Equilibrar carga:** balanceamento min-max de jornada e reporte de demanda reprimida/desequilíbrio entre microáreas para dimensionamento.
+- **Carga de trabalho:** limite de jornada por agente e reporte de demanda reprimida/desequilíbrio entre microáreas para dimensionamento (sem redistribuir visitas entre agentes).
 - **Visualização:** mapa interativo com rotas por ACS e conferência visual de regras clínicas.
 - **Reportar Falhas:** Demandas não atendidas, desequilíbrio entre microáreas, etc devem ser reportados a fim de requisito de mais recursos para a área. 
 
 ## Como Fazer
 
-- **Modelagem (MDVRPTW/HHCRSP):**
-  - Eliminar pares (visita, agente) inviáveis antes de otimizar.
-  - Decomposição por microárea: subproblemas diários tratáveis de 10 a 20 visitas por ACS a partir da base populacional da eSF.
+- **Modelagem (OPTWVP/HHCRSP):**
+  - Eliminar visitas inviáveis (janela de tempo, jornada) antes de otimizar.
+  - Um subproblema independente por ACS e por dia, restrito à sua microárea: 10 a 20 visitas a partir da base populacional da eSF. Os resultados de todos os agentes são agregados num relatório por microárea.
   - Função objetivo multicritério normalizada em minutos: deslocamento a pé + penalidades de atraso + sobrecarga de jornada.
   - Testes com cenários extremos (aglomerado, alta urgência, alto atraso)
 - **Arquitetura algorítmica em três camadas:**
   1. *Construtiva rápida:* inserção gulosa de menor custo para solução inicial imediata (< 1 s).
   2. *ALNS:* destruição/reparo adaptativo, aceitação por *Simulated Annealing* e sanitização determinística para ordenar urgências.
   3. *MILP:* solucionador em instâncias pequenas para validação do *gap* de otimalidade.
-- **Georreferenciamento e dados:** OpenRouteService ou OSRM local (perfil pedestre) com cache local da matriz; dados sintéticos/anonimizados (LGPD).
+- **Georreferenciamento e dados:** malha de caminhos a pé do OpenStreetMap via osmnx (OpenRouteService/OSRM como alternativa) com cache local da matriz; dados sintéticos/anonimizados (LGPD).
 - **Validação experimental:** calibração formal (DoE/Taguchi), múltiplas sementes e comparação contra linhas de base (heurística gulosa e planejamento manual).
-- **Dashboard:** visualizador de mapas leve (Leaflet/OSM) com exportação de itinerários em CSV e infromações sobre demandas não atendidas.
+- **Dashboard:** visualizador de mapas leve (Leaflet/OSM) com exportação de itinerários em CSV/GPX e informações sobre demandas não atendidas.
 
 
 ## Parâmetros
