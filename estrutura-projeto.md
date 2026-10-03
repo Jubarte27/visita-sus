@@ -1,3 +1,5 @@
+# Planejamento de rotas a pé para Agentes Comunitários de Saúde
+
 ## 1. Resumo e Palavras-chave
 
 O projeto prevê a criação de uma ferramenta computacional para ajudar Agentes Comunitários de Saúde (ACS) a planejar suas visitas domiciliares na Atenção Primária à Saúde (APS) do SUS.
@@ -85,9 +87,9 @@ Os resultados usam métricas, dados e linhas de base diferentes; não formam um 
 
 ### 5.3 Estado da técnica e soluções de mercado
 
-Na operação do SUS, o **e-SUS Território** oferece registro e histórico de visitas individuais e familiares, integrado ao prontuário da APS. O capítulo consultado documenta apoio ao acompanhamento territorial, mas não descreve otimização conjunta de rotas, jornadas e prioridades. A ferramenta proposta pode complementar esse processo com planejamento computacional. Fonte: [Ministério da Saúde — Visita Domiciliar e Territorial](https://sisaps.saude.gov.br/sistemas/esusaps/docs/manual/TERRITORIO/territorio_04/).
+Na operação do SUS, o **e-SUS Território** oferece registro e histórico de visitas individuais e familiares, integrado ao prontuário da APS. O capítulo consultado documenta apoio ao acompanhamento territorial, mas não descreve otimização conjunta de rotas, jornadas e prioridades. A ferramenta proposta pode complementar esse processo com planejamento computacional. Fonte: [Ministério da Saúde - Visita Domiciliar e Territorial](https://sisaps.saude.gov.br/sistemas/esusaps/docs/manual/TERRITORIO/territorio_04/).
 
-No mercado, a API **Timefold Field Service Routing** documenta atribuição e roteirização de cuidadores, considerando aspectos como qualificações, janelas de atendimento e continuidade do cuidado. Isso mostra que parte das restrições estudadas na literatura já aparece em produtos comerciais. A documentação, porém, não comprova desempenho equivalente ao dos estudos nem adequação à combinação específica de microáreas, caminhada e periodicidade das visitas de ACS. Fonte: [Timefold — Use case guide](https://docs.timefold.ai/field-service-routing/latest/user-guide/use-cases). Documentações consultadas em 24/09/2026.
+No mercado, a API **Timefold Field Service Routing** documenta atribuição e roteirização de cuidadores, considerando aspectos como qualificações, janelas de atendimento e continuidade do cuidado. Isso mostra que parte das restrições estudadas na literatura já aparece em produtos comerciais. A documentação, porém, não comprova desempenho equivalente ao dos estudos nem adequação à combinação específica de microáreas, caminhada e periodicidade das visitas de ACS. Fonte: [Timefold - Use case guide](https://docs.timefold.ai/field-service-routing/latest/user-guide/use-cases). Documentações consultadas em 24/09/2026.
 
 ### 5.4 Lacuna e posicionamento do projeto
 
@@ -230,30 +232,30 @@ Como resultados concretos, o projeto deve produzir:
 3. uma avaliação comparativa entre a construção gulosa, a ALNS, o planejamento manual (quando disponível) e, em instâncias pequenas, uma formulação MILP de referência, usando múltiplas sementes;
 4. um dashboard (Leaflet/OSM) para conferência das rotas, exportação de itinerários em CSV e GPX e relatório de demanda não atendida e de desequilíbrio entre microáreas.
 
-Espera-se que a ALNS produza soluções melhores que a construção gulosa isolada e competitivas com o planejamento manual existente, com ganhos sobretudo no respeito à jornada, atendimento tempestivo de urgências e visibilidade de dados para a gestão — e não necessariamente em redução de distância percorrida, já que a divisão por microárea já tende a produzir bons tempos de deslocamento. Os percentuais de ganho reportados na literatura (seção 5) servem apenas como referência de comparação, não como metas presumidas para o contexto do SUS: os resultados reais dependerão dos dados e das instâncias avaliadas, e serão reportados com suas limitações.
+Espera-se que a ALNS produza soluções melhores que a construção gulosa isolada e competitivas com o planejamento manual existente, com ganhos sobretudo no respeito à jornada, atendimento tempestivo de urgências e visibilidade de dados para a gestão - e não necessariamente em redução de distância percorrida, já que a divisão por microárea já tende a produzir bons tempos de deslocamento. Os percentuais de ganho reportados na literatura (seção 5) servem apenas como referência de comparação, não como metas presumidas para o contexto do SUS: os resultados reais dependerão dos dados e das instâncias avaliadas, e serão reportados com suas limitações.
 
 ## 8. Cronograma
 
 O projeto deve ser concluído em 2 a 3 semanas, com acompanhamento semanal. As semanas são contadas a partir desta entrega.
 
-| Atividade | Concluído | Semana 1 | Semana 2 | Semana 3 |
-|---|:-:|:-:|:-:|:-:|
-| Definição do problema, revisão de literatura e proposta | X | | | |
-| OE1 — Modelagem e pré-processamento de viabilidade | | X | | |
-| OE5 — Geração de dados sintéticos e matriz de distâncias a pé | | X | | |
-| OE2 — Construção gulosa e ALNS | | X | X | |
-| OE3 e OE4 — Função objetivo, precedência de urgência e teto de casos | | | X | |
-| OE6 — Validação (múltiplas sementes, comparação com guloso e manual; MILP em instâncias pequenas) | | | X | X |
-| OE7 — Dashboard e relatório por microárea | | | | X |
-| Escrita do texto e apresentações semanais | | X | X | X |
+|Atividade|Semana 1|Semana 2|Semana 3|
+|---|:-:|:-:|:-:|
+|Definição do problema, revisão de literatura e proposta||||
+|OE1 - Modelagem e pré-processamento de viabilidade|X|||
+|OE5 - Geração de dados sintéticos e matriz de distâncias a pé|X|||
+|OE2 - Construção gulosa e ALNS|X|X||
+|OE3 e OE4 - Função objetivo, precedência de urgência e teto de casos||X|X|
+|OE6 - Validação (múltiplas sementes, comparação com guloso e manual; MILP em instâncias pequenas)||X|X|
+|OE7 - Dashboard e relatório por microárea|||X|
+|Escrita do texto e apresentações semanais|X|X|X|
 
 A semana 3 funciona como margem. Se o prazo final for antecipado, a prioridade é entregar o algoritmo (guloso + ALNS) e sua comparação com a construção gulosa; a referência MILP e o dashboard são reduzidos ao mínimo necessário (por exemplo, um mapa estático das rotas e o relatório em tabela).
 
 ## 9. Referências
 
-- ABDOLHAMIDI, D.; LURKIN, V. **An Integrated Optimization Model for Home Healthcare Routing and Scheduling with Synchronization, Break Scheduling, and Temporal Stability**. Preprint, 2026. [Texto consultado](artigos/abdolhamidi.pdf).
-- CATTAFI, M. et al. **An application of constraint solving for home health care**. AI Communications, v. 28, n. 2, p. 215–237, 2015. [Texto consultado](artigos/cattafi.pdf).
-- NEVES, M. E. F. **A Metaheuristic Approach to Routing and Scheduling Hospital-at-Home Visits**. Dissertação de mestrado — Louvain School of Management e Instituto Superior Técnico, 2026. [Texto consultado](artigos/neves.pdf).
-- ÖZSAKALLI, G. **Home Healthcare Scheduling and Routing Problems**. Tese de doutorado — Yaşar University, 2023. [Texto consultado](artigos/ozsakalli.pdf).
-- TRAUTSAMWIESER, A.; HIRSCH, P. **Optimization of daily scheduling for home health care services**. Journal of Applied Operational Research, v. 3, n. 3, p. 124–136, 2011. [Texto consultado](artigos/trautsamwieser.pdf).
-- YU, T.; GUAN, Y.; ZHONG, X. **Visiting nurses assignment and routing for decentralized telehealth service networks**. Annals of Operations Research, v. 341, p. 1191–1221, 2024. [Texto consultado](artigos/yu.pdf).
+- ABDOLHAMIDI, D.; LURKIN, V. **An Integrated Optimization Model for Home Healthcare Routing and Scheduling with Synchronization, Break Scheduling, and Temporal Stability**. Preprint, 2026. [Texto consultado](https://doi.org/10.2139/ssrn.7229446).
+- CATTAFI, M. et al. **An application of constraint solving for home health care**. AI Communications, v. 28, n. 2, p. 215–237, 2015. [Texto consultado](https://doi.org/10.3233/AIC-140632).
+- NEVES, M. E. F. **A Metaheuristic Approach to Routing and Scheduling Hospital-at-Home Visits**. Dissertação de mestrado - Louvain School of Management e Instituto Superior Técnico, 2026. [Texto consultado](https://thesis.dial.uclouvain.be/entities/masterthesis/316d96d0-553e-4e38-bfe7-42e801699d9a).
+- ÖZSAKALLI, G. **Home Healthcare Scheduling and Routing Problems**. Tese de doutorado - Yaşar University, 2023. [Texto consultado](https://avesis.yasar.edu.tr/yonetilen-tez/f2f906e2-af4f-4676-99c7-409e39e0572d/home-healthcare-scheduling-and-routing-problems).
+- TRAUTSAMWIESER, A.; HIRSCH, P. **Optimization of daily scheduling for home health care services**. Journal of Applied Operational Research, v. 3, n. 3, p. 124–136, 2011. [Texto consultado](https://www.researchgate.net/publication/265015045_Optimization_of_daily_scheduling_for_home_health_care_services).
+- YU, T.; GUAN, Y.; ZHONG, X. **Visiting nurses assignment and routing for decentralized telehealth service networks**. Annals of Operations Research, v. 341, p. 1191–1221, 2024. [Texto consultado](https://doi.org/10.1007/s10479-024-05883-z).
