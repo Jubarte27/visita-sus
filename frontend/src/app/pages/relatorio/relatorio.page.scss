@@ -1,0 +1,64 @@
+:host { --critico: #d03b3b; --critico-fundo: #fdecec; }
+.pagina { padding: 16px; max-width: 1500px; margin: 0 auto; }
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  h1 { margin: 0; }
+}
+
+.sub, .nota { color: var(--mat-sys-on-surface-variant); margin: 4px 0; }
+.nota { font-size: 12px; max-width: 900px; }
+.erro { color: var(--mat-sys-error); }
+.aviso { padding: 8px 12px; border-radius: 8px; background: var(--mat-sys-surface-container); }
+.icone { color: var(--critico); }
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mat-sys-surface-container);
+  .rotulo { font-size: 12px; color: var(--mat-sys-on-surface-variant); }
+  .valor { font-size: 26px; font-weight: 500; }
+  small { font-size: 12px; font-weight: 400; color: var(--mat-sys-on-surface-variant); }
+  &.critico { background: var(--critico-fundo); box-shadow: inset 3px 0 0 var(--critico); }
+}
+
+.graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 24px;
+  margin: 8px 0 20px;
+}
+
+h2 { font-size: 18px; margin: 8px 0; }
+.tabela { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  th { text-align: left; font-weight: 500; color: var(--mat-sys-on-surface-variant); padding: 6px; vertical-align: bottom; }
+  td { padding: 6px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; }
+  small { color: var(--mat-sys-on-surface-variant); }
+  tbody tr.alerta { background: var(--critico-fundo); td:first-child { box-shadow: inset 3px 0 0 var(--critico); } }
+  td.critico { color: var(--critico); font-weight: 500; }
+  tfoot td { font-weight: 500; border-top: 2px solid var(--mat-sys-outline); }
+  .sem-plano { color: var(--mat-sys-on-surface-variant); font-style: italic; }
+}
+
+.selo-alerta { color: var(--critico); font-weight: 500; font-size: 12px; margin-top: 2px; }
+.motivos { margin: 2px 0 0; padding-left: 16px; font-size: 11px; color: var(--mat-sys-on-surface-variant); }

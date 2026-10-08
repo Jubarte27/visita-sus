@@ -1,0 +1,6 @@
+# usados apenas por legacy/data_generator.ipynb (dados: ./fetch.sh --legacy)
+-r requirements.txt
+matplotlib
+contextily
+fudgeo
+pyrosm

@@ -1,5 +1,13 @@
 # visita-sus
-Objetivo definido em [Proposta.pdf](Proposta.pdf)
+Objetivo definido em [docs/Proposta.pdf](docs/Proposta.pdf) (texto em [docs/estrutura-projeto.md](docs/estrutura-projeto.md)). O roteiro de implementação do MVP está em [docs/passos-implementacao.md](docs/passos-implementacao.md).
+
+## Estrutura
+
+- `backend/engine/`: Python puro: gerador de instâncias (`generator.py`), matriz de tempos (`matrix.py`), pré-processamento (`preprocess.py`, `io.py`), avaliação (`evaluation.py`), construção gulosa (`greedy.py`), ALNS (`alns.py`) e o comando `solve.py`.
+- `backend/legacy/`: notebook antigo do gerador (`data_generator.ipynb`).
+- `backend/data/`: dados baixados e instâncias geradas (fora do git).
+- `frontend/`: Angular 21 + Material + Leaflet (telas do MVP).
+- `docs/`: proposta, revisão de literatura, artigos, apresentações e amostras de instâncias (`docs/data/instances/`, só `meta.json` e `mapa.html`).
 
 ## O que fazer
 
@@ -53,29 +61,72 @@ Objetivo definido em [Proposta.pdf](Proposta.pdf)
 
 ## Uso
 
+Comandos a partir de `backend/`:
+
 ```sh
+cd backend
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
-./fetch.sh
+# sem python3-venv no sistema: uv venv --python 3.12 --seed .venv && uv pip install --python .venv/bin/python -r requirements.txt
+./fetch.sh            # malha de setores do Censo 2022 em data/ (--legacy baixa também os dados do notebook)
 
 # microárea ao redor de uma UBS (coordenada lat,lon); padrão: setores vizinhos até 750 moradores
-.venv/bin/python src/generator.py --ubs=-30.0431944,-51.1563369 --name bomjesus
-.venv/bin/python src/generator.py --ubs=-30.0431944,-51.1563369 --name bomjesus_2000 --populacao 2000 --seed 3
+.venv/bin/python -m engine.generator --ubs=-30.0431944,-51.1563369 --name bomjesus
+.venv/bin/python -m engine.generator --ubs=-30.0431944,-51.1563369 --name bomjesus_2000 --populacao 2000 --seed 3
 
-# solver sobre as candidatas do dia
-.venv/bin/python src/solver.py data/instances/bomjesus/candidatas.gpkg data/instances/bomjesus/graph.graphml
+# equipe de 4 ACS: área para 4 × 750 moradores, dividida em 4 microáreas contíguas (uma instância, um grafo)
+.venv/bin/python -m engine.generator --ubs=-30.0431944,-51.1563369 --name bomjesus_eq4 --acs 4
+
+# resumo da instância após o pré-processamento (calcula e guarda matrix.npz na primeira vez)
+.venv/bin/python -m engine.io data/instances/bomjesus [--data AAAA-MM-DD]
+
+# roteiro do dia (guloso ou ALNS com várias sementes); grava data/instances/bomjesus/solucao.json
+.venv/bin/python -m engine.solve data/instances/bomjesus --metodo alns [--data AAAA-MM-DD] [--beta 30 --gamma 2]
+                                 [--iteracoes 1000 --tempo 5 --sementes 0,1,2,3,4] [--export csv,gpx,geojson]
+                                 # --metodo milp: referência exata (HiGHS), só para instâncias pequenas
+
+# guloso × ALNS × MILP em subinstâncias de 10 candidatas (gap da ALNS para o ótimo)
+.venv/bin/python -m engine.compare data/instances/bomjesus --n 10 --reps 5 [--csv resultados.csv]
 ```
 
 A microárea é o setor censitário que contém a UBS mais os setores vizinhos (os mais próximos primeiro) até atingir `--populacao`. O número de domicílios é o do Censo 2022 (V0007), distribuído pelas edificações residenciais do OSM (cada uma comporta área × pavimentos / 80 m² domicílios; casas ficam com 1). A malha a pé e as edificações vêm do OpenStreetMap via Overpass (online, só durante a geração).
 
-Cada instância fica em `data/instances/<nome>/`:
+Cada instância fica em `backend/data/instances/<nome>/`:
 
 - `graph.graphml`: malha a pé (faixa de 200 m ao redor da microárea); cada domicílio e a UBS são nós, inseridos no ponto da rua em frente à edificação. Arestas têm `length` (m) e `travel_time` (min, a 4,5 km/h).
-- `instance.gpkg`: camada `visits` (linha 0 é a UBS; demais são domicílios com `condicao`, `w` peso clínico, `P` intervalo máximo em dias, `d` dias desde a última visita, `s` duração em min, `tw_start`/`tw_end` janela em min desde o início da jornada, `urgente`, `grave`, `penalidade` = w·(d+1)/P, `candidata`, `node`) e camada `microarea` (setores). `profit`/`cost` repetem `penalidade`/`s` para o `solver.py`.
-- `candidatas.gpkg`: UBS + candidatas do dia (todas as urgentes + as `--candidatas` de maior penalidade), entrada do solver.
-- `meta.json`: setores, contagens do Censo e do que foi gerado, parâmetros.
-- `mapa.html`: mapa interativo (clique nos pontos para ver os domicílios).
+- `instance.gpkg`: camada `visits` (linha 0 é a UBS; demais são domicílios com `condicao`, `w` peso clínico, `P` intervalo máximo em dias, `d` dias desde a última visita, `s` duração em min, `tw_start`/`tw_end` janela em min desde o início da jornada, `urgente`, `grave`, `penalidade` = w·(d+1)/P, `candidata`, `node`) e camada `microarea` (setores). `profit`/`cost` repetem `penalidade`/`s` (formato do solver antigo, mantido por compatibilidade).
+- `candidatas.gpkg`: UBS + candidatas do dia (todas as urgentes + as `--candidatas` de maior penalidade), para conferência; o `engine.solve` recalcula as candidatas para a data do plano.
+- `meta.json`: setores, contagens do Censo e do que foi gerado, parâmetros e `data_base` (data até a qual os `d` são contados; `--data-base`, padrão hoje).
+- `mapa.html`: mapa interativo (clique nos pontos para ver os domicílios; numa equipe, as microáreas coloridas).
+- Equipe (`--acs N`): `visits` ganha a coluna `microarea` (1..N; UBS = 0), `instance.gpkg` ganha a camada `microareas` (polígono de cada uma) e `meta.json` o bloco `equipe` (setores, população, domicílios e urgentes por microárea). A divisão é por setores censitários (crescimento de regiões a partir de sementes afastadas, equilibrando a população) ou, com menos setores que ACS, por k-means nas edificações. `importar_instancia` cria a equipe "eSF <nome>" com N microáreas `<nome>_<k>`; `engine.io`/`engine.solve` aceitam `--microarea k`.
+- `matrix.npz`: matriz de tempos a pé (min) entre todos os nós de acesso, criada por `engine.io` na primeira leitura.
+- `solucao.json`, e com `--export` também `itinerario.csv`, `itinerario.gpx` (trilha pela malha + paradas numeradas; abre em apps de mapa e em <https://gpx.studio>) e `rota.geojson`: saídas do `engine.solve`.
 
-Os parâmetros clínicos (probabilidade de cada condição, `w`, `P`, `s`) ficam no topo de `src/generator.py` e são ilustrativos. `--urgencia` e `--atraso` permitem montar os cenários de alta urgência e alto atraso.
+Os parâmetros clínicos (probabilidade de cada condição, `w`, `P`, `s`) ficam no topo de `backend/engine/generator.py` e são ilustrativos. `--urgencia` e `--atraso` permitem montar os cenários de alta urgência e alto atraso.
+
+## Backend (Django + PostgreSQL)
+
+```sh
+cp .env.example .env          # na raiz do repositório
+docker compose up -d db       # PostgreSQL 17
+
+cd backend
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py importar_instancia data/instances/bomjesus [--equipe "eSF Bom Jesus"] [--data-base AAAA-MM-DD]
+.venv/bin/python manage.py gerar_instancia --ubs=-30.0431944,-51.1563369 --name outra   # gera (rede) e importa
+.venv/bin/python manage.py createsuperuser   # acesso ao admin em http://localhost:8000/admin/
+.venv/bin/python manage.py runserver
+.venv/bin/python -m pytest                    # testes (o banco precisa estar no ar)
+```
+
+## Frontend (Angular)
+
+```sh
+cd frontend
+npx npm@11 install     # o npm 9 do Ubuntu falha neste projeto; o npm 11 via npx resolve
+npx ng serve           # http://localhost:4200 (com o backend no ar em localhost:8000)
+```
+
+Detalhes em [frontend/README.md](frontend/README.md).
 
 ## Ferramentas possivelmente úteis
 

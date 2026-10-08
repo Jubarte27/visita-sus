@@ -1,0 +1,53 @@
+<div class="layout">
+  <aside>
+    @if (microarea.isLoading() || domicilios.isLoading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+    @if (microarea.error() || domicilios.error()) {
+      <p class="erro">Não foi possível carregar a microárea. O backend está no ar?</p>
+    }
+    @if (microarea.value(); as m) {
+      <h2>{{ m.nome }}</h2>
+      <p class="sub">
+        <a [routerLink]="['/equipes', m.equipe.id]">{{ m.equipe.nome }}</a> · {{ m.ubs.nome }}
+        @if (m.agente) { · {{ m.agente.nome }} }
+      </p>
+      <dl>
+        <dt>bairros</dt><dd>{{ m.bairros.join(', ') || '—' }}</dd>
+        <dt>setores censitários</dt><dd>{{ m.setores.length }}</dd>
+        <dt>área</dt><dd>{{ m.area_km2 | number: '1.0-3' }} km²</dd>
+        <dt>moradores (Censo 2022)</dt><dd>{{ m.moradores_censo ?? '—' }}</dd>
+        <dt>domicílios</dt><dd>{{ m.n_domicilios }}</dd>
+      </dl>
+    }
+    @if (resumo(); as r) {
+      <mat-card appearance="outlined">
+        <mat-card-header><mat-card-title>Situação em {{ selecao.data() | date: 'dd/MM/yyyy' }}</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <dl>
+            <dt>pontos de acesso</dt><dd>{{ r.pontos }}</dd>
+            <dt>atrasados</dt><dd>{{ r.atrasados }} ({{ r.atrasados / r.total | percent: '1.0-0' }})</dd>
+            <dt>urgentes</dt><dd>{{ r.urgentes }}</dd>
+            <dt>graves</dt><dd>{{ r.graves }}</dd>
+          </dl>
+          <table class="condicoes">
+            @for (c of r.condicoes; track c.nome) {
+              <tr>
+                <td><span class="cor" [style.background]="c.cor"></span>{{ c.nome }}</td>
+                <td class="num">{{ c.n }}</td>
+              </tr>
+            }
+          </table>
+        </mat-card-content>
+      </mat-card>
+      <p class="dica">Clique num ponto do mapa para ver os domicílios. Tamanho = nº de domicílios no ponto; borda
+        grossa = urgente; cor = peso clínico.</p>
+    }
+  </aside>
+  <app-map
+    [poligono]="microarea.value()?.poligono ?? null"
+    [ubs]="microarea.value()?.ubs ?? null"
+    [domicilios]="domicilios.value() ?? null"
+    [malha]="malha.value() ?? null"
+  />
+</div>

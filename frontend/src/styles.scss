@@ -1,0 +1,81 @@
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+  @include mat.theme((
+    color: (primary: mat.$azure-palette, tertiary: mat.$blue-palette),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+// popups do Leaflet: tabela compacta de domicílios
+.leaflet-popup-content table.domicilios {
+  border-collapse: collapse;
+  font-size: 11px;
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 1px 4px;
+    text-align: left;
+  }
+}
+
+.legenda-mapa {
+  background: white;
+  padding: 6px 8px;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+  font: 12px/1.5 Roboto, sans-serif;
+
+  .cor {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border: 1px solid #333;
+    margin: 0 2px 0 6px;
+    vertical-align: middle;
+  }
+}
+
+.ubs-icon {
+  background: #d32f2f;
+  color: white;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .5);
+  font: bold 16px/24px Roboto, sans-serif;
+  text-align: center;
+}
+
+// marcadores do plano: paradas numeradas e visitas não atendidas
+.parada {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #1565c0;
+  border-radius: 50%;
+  color: #000;
+  font: bold 11px/20px Roboto, sans-serif;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+
+  &.urgente { border: 3px solid #000; line-height: 18px; }
+}
+
+.nao-atendida {
+  font: bold 20px/18px Roboto, sans-serif;
+  text-align: center;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+  opacity: .9;
+}

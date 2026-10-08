@@ -1,0 +1,87 @@
+<div class="pagina">
+  @if (equipe.isLoading()) { <mat-progress-bar mode="indeterminate" /> }
+  @if (equipe.error()) { <p class="erro">Não foi possível carregar a equipe. O backend está no ar?</p> }
+
+  @if (equipe.value(); as e) {
+    <header>
+      <div>
+        <h1>{{ e.nome }}</h1>
+        <p class="sub">{{ e.ubs.nome }} · {{ e.microareas.length }} ACS · plano de {{ selecao.data() | date: 'dd/MM/yyyy' }}</p>
+      </div>
+      <div class="acoes">
+        <mat-button-toggle-group [value]="metodo()" (change)="metodo.set($event.value)" aria-label="método">
+          <mat-button-toggle value="guloso">Guloso</mat-button-toggle>
+          <mat-button-toggle value="alns">ALNS</mat-button-toggle>
+        </mat-button-toggle-group>
+        <button mat-flat-button (click)="planejarEquipe()" [disabled]="planejando() !== null">
+          <mat-icon>route</mat-icon> Planejar dia
+        </button>
+      </div>
+    </header>
+
+    <mat-expansion-panel class="avancado">
+      <mat-expansion-panel-header><mat-panel-title>Parâmetros</mat-panel-title>
+        <mat-panel-description>β={{ params.beta }} · γ={{ params.gamma }}@if (metodo() === 'alns') { · {{ params.sementes }} sementes ×
+          {{ params.tempo }} s }</mat-panel-description></mat-expansion-panel-header>
+      <div class="campos">
+        <mat-form-field><mat-label>β (min por unidade de penalidade)</mat-label>
+          <input matInput type="number" min="0" [(ngModel)]="params.beta" /></mat-form-field>
+        <mat-form-field><mat-label>γ (min por min de excesso)</mat-label>
+          <input matInput type="number" min="0" [(ngModel)]="params.gamma" /></mat-form-field>
+        @if (metodo() === 'alns') {
+          <mat-form-field><mat-label>sementes</mat-label>
+            <input matInput type="number" min="1" max="10" [(ngModel)]="params.sementes" /></mat-form-field>
+          <mat-form-field><mat-label>tempo por semente (s)</mat-label>
+            <input matInput type="number" min="1" max="30" [(ngModel)]="params.tempo" /></mat-form-field>
+        }
+      </div>
+    </mat-expansion-panel>
+
+    @if (planejando()) {
+      <div class="progresso">
+        <mat-progress-bar mode="indeterminate" />
+        <span>Planejando com {{ metodo() === 'alns' ? 'ALNS' : 'construção gulosa' }} ({{ tempoEstimado() }})…</span>
+      </div>
+    }
+
+    <div class="cards">
+      @for (m of e.microareas; track m.id) {
+        @let p = ultimo().get(m.id);
+        <mat-card appearance="outlined" [class.sem-plano]="!p">
+          <mat-card-header>
+            <mat-card-title>{{ m.agente?.nome ?? m.nome }}</mat-card-title>
+            <mat-card-subtitle>microárea {{ m.nome }} · {{ m.n_domicilios }} domicílios</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            @if (p) {
+              <dl>
+                <dt>visitas</dt><dd><b>{{ p.visitas }}</b> de {{ p.n_candidatas }} candidatas</dd>
+                <dt>não atendidas</dt><dd>{{ p.nao_atendidas }}</dd>
+                <dt>caminhada</dt><dd>{{ p.caminhada_min | number: '1.0-0' }} min</dd>
+                <dt>retorno</dt><dd>{{ p.retorno }}@if (p.excesso_min > 0) { <span class="excesso">
+                  +{{ p.excesso_min | number: '1.0-0' }} min</span> }</dd>
+                <dt>penalidade residual</dt><dd>{{ p.penalidade_residual | number: '1.1-1' }}</dd>
+                <dt>método</dt><dd>{{ p.metodo }} · {{ p.runtime_s | number: '1.1-1' }} s
+                  @if (p.status !== 'viavel') { · <span class="erro">com violações</span> }</dd>
+              </dl>
+              @if (m.agente; as a) {
+                <app-jornada-bar [H]="p.retorno_min" [T]="a.jornada_min" [Tmax]="a.jornada_max_min"
+                  [horaInicio]="a.hora_inicio" />
+              }
+            } @else {
+              <p class="sub">Sem plano para esta data.</p>
+            }
+          </mat-card-content>
+          <mat-card-actions>
+            @if (p) { <a mat-button [routerLink]="['/planos', p.id]"><mat-icon>map</mat-icon> Abrir plano</a> }
+            <a mat-button [routerLink]="['/microareas', m.id]">Microárea</a>
+            @if (m.agente; as a) {
+              <button mat-button (click)="planejarAgente(a.id)" [disabled]="planejando() !== null">
+                {{ p ? 'Replanejar' : 'Planejar' }} só este ACS</button>
+            }
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+  }
+</div>

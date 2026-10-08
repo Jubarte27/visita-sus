@@ -1,0 +1,118 @@
+<div class="layout">
+  <aside>
+    @if (plano.isLoading()) { <mat-progress-bar mode="indeterminate" /> }
+    @if (plano.error()) { <p class="erro">Plano não encontrado.</p> }
+    @if (plano.value(); as p) {
+      @let m = p.metricas;
+      <a class="voltar" [routerLink]="microarea.value() ? ['/equipes', microarea.value()!.equipe.id] : ['/']">
+        <mat-icon>arrow_back</mat-icon> painel da equipe</a>
+      <h2>{{ p.agente.nome }}</h2>
+      <p class="sub">{{ p.data | date: 'dd/MM/yyyy' }} · {{ p.metodo === 'alns' ? 'ALNS' : p.metodo }} · plano {{ p.id }}
+        @if (microarea.value(); as ma) { · <a [routerLink]="['/microareas', ma.id]">microárea {{ ma.nome }}</a> }</p>
+
+      <div class="numeros">
+        <div><b>{{ m.visitas }}</b><span>visitas de {{ m.candidatas }}</span></div>
+        <div><b>{{ m.caminhada_min | number: '1.0-0' }}</b><span>min a pé</span></div>
+        <div><b>{{ m.retorno }}</b><span>retorno à UBS</span></div>
+        <div [class.alerta]="m.excesso_min > 0"><b>{{ m.excesso_min | number: '1.0-0' }}</b><span>min de excesso</span></div>
+      </div>
+
+      <app-jornada-bar [H]="m.H" [T]="m.jornada_min" [Tmax]="m.jornada_max_min" [horaInicio]="p.hora_inicio" />
+
+      <div class="selos">
+        @for (s of selos(); track s.rotulo) {
+          <span class="selo" [class.falha]="!s.ok" [matTooltip]="s.detalhe">{{ s.ok ? '✓' : '✗' }} {{ s.rotulo }}</span>
+        }
+      </div>
+
+      <p class="detalhes">objetivo {{ m.objetivo | number: '1.1-1' }} · penalidade residual
+        {{ m.penalidade_residual | number: '1.1-1' }} (= {{ m.penalidade_residual_min | number: '1.0-0' }} min)
+        @if (m.seeds_stats; as st) { · {{ st.sementes.length }} sementes: média {{ st.media | number: '1.1-1' }},
+          desvio {{ st.desvio | number: '1.1-1' }} }
+        · {{ m.runtime_s | number: '1.1-1' }} s</p>
+
+      <div class="exportar">
+        <a mat-stroked-button [href]="csv()" download><mat-icon>table_view</mat-icon> CSV</a>
+        <a mat-stroked-button [href]="gpx()" download><mat-icon>download</mat-icon> GPX</a>
+      </div>
+
+      <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+        <mat-tab [label]="'Itinerário (' + p.itens.length + ')'">
+          <table class="lista">
+            <tr><th>#</th><th>horário</th><th>domicílio</th><th>motivo</th><th class="num">a pé</th></tr>
+            @for (i of p.itens; track i.ordem) {
+              <tr (click)="abrir('parada-' + i.ordem)" tabindex="0" (keydown.enter)="abrir('parada-' + i.ordem)">
+                <td><span class="num-parada" [style.background]="cor(i.w)" [class.urgente]="i.urgente">{{ i.ordem }}</span></td>
+                <td>{{ i.chegada }}–{{ i.fim }}@if (i.espera_min > 0.5) { <small> (espera {{ i.espera_min | number: '1.0-0' }})</small> }</td>
+                <td>{{ condicao(i.condicao) }}@if (i.grave) { <small> · grave</small> }</td>
+                <td><span class="motivo" [attr.data-m]="i.motivo">{{ motivoVisita[i.motivo] }}</span></td>
+                <td class="num">{{ i.caminhada_min | number: '1.1-1' }}</td>
+              </tr>
+            }
+            <tr class="retorno"><td>⌂</td><td>{{ m.retorno }}</td><td colspan="3">retorno à UBS</td></tr>
+          </table>
+        </mat-tab>
+        <mat-tab [label]="'Não atendidas (' + p.nao_atendidas.length + ')'">
+          <p class="resumo-fora">@for (f of foraPorMotivo(); track f[0]) { <span>{{ f[0] }}: {{ f[1] }}</span> }
+            · {{ m.fora_das_candidatas }} viáveis fora das candidatas do dia</p>
+          <table class="lista">
+            <tr><th>domicílio</th><th>motivo</th><th class="num">pen.</th><th class="num">dias/P</th></tr>
+            @for (n of p.nao_atendidas; track n.domicilio) {
+              <tr (click)="abrir('fora-' + n.domicilio)" tabindex="0" (keydown.enter)="abrir('fora-' + n.domicilio)">
+                <td><span class="x" [style.color]="cor(n.w)">×</span> {{ condicao(n.condicao) }}
+                  @if (n.urgente) { <b class="erro">urgente</b> }</td>
+                <td>{{ motivoFora[n.motivo] }}</td>
+                <td class="num">{{ n.penalidade | number: '1.2-2' }}</td>
+                <td class="num">{{ n.dias_sem_visita }}@if (n.atraso_dias) { <small class="erro"> +{{ n.atraso_dias }}</small> }</td>
+              </tr>
+            }
+          </table>
+        </mat-tab>
+        <mat-tab label="Comparar métodos">
+          <p class="detalhes">Guloso × ALNS × MILP (referência exata) na instância deste plano. O MILP só fecha a
+            otimalidade em instâncias pequenas: use uma subinstância (8–15 candidatas) para medir o gap da ALNS.</p>
+          <div class="comparar-campos">
+            <mat-form-field subscriptSizing="dynamic"><mat-label>subinstância (candidatas)</mat-label>
+              <input matInput type="number" min="2" max="60" placeholder="todas" [(ngModel)]="subN" /></mat-form-field>
+            <mat-form-field subscriptSizing="dynamic"><mat-label>tempo do MILP (s)</mat-label>
+              <input matInput type="number" min="1" max="120" [(ngModel)]="tempoMilp" /></mat-form-field>
+            <button mat-flat-button (click)="comparar()" [disabled]="comparando()">Comparar</button>
+          </div>
+          @if (comparando()) { <mat-progress-bar mode="indeterminate" /> }
+          @if (erroComparacao(); as e) { <p class="erro">{{ e }}</p> }
+          @if (comparacao(); as c) {
+            <p class="detalhes">{{ c.candidatas }} candidatas@if (c.subinstancia) { (subinstância, semente {{ c.seed }}) }.
+              Clique numa linha para sobrepor a rota no mapa (tracejada).</p>
+            <table class="lista">
+              <tr><th>método</th><th class="num">objetivo</th><th class="num">gap p/ MILP</th><th class="num">visitas</th>
+                <th class="num">a pé</th><th class="num">tempo</th></tr>
+              @for (m of c.metodos; track m.metodo) {
+                <tr (click)="mostrarRota(m)" [class.selecionada]="rotaComparada() === m" tabindex="0"
+                    (keydown.enter)="mostrarRota(m)">
+                  <td>{{ m.metodo === 'alns' ? 'ALNS' : m.metodo === 'milp' ? 'MILP' : 'guloso' }}
+                    @if (m.metodo === 'milp') { <small>gap provado {{ m.gap_solver === null ? '—' : (m.gap_solver | percent: '1.0-2') }}</small> }</td>
+                  <td class="num">{{ m.objetivo | number: '1.1-1' }}</td>
+                  <td class="num">{{ m.gap_para_milp | percent: '1.2-2' }}</td>
+                  <td class="num">{{ m.visitas }}</td>
+                  <td class="num">{{ m.caminhada_min | number: '1.0-0' }} min</td>
+                  <td class="num">{{ m.runtime_s | number: '1.1-1' }} s</td>
+                </tr>
+              }
+            </table>
+          }
+        </mat-tab>
+      </mat-tab-group>
+    }
+  </aside>
+  <app-map
+    [poligono]="microarea.value()?.poligono ?? null"
+    [ubs]="plano.value()?.ubs ?? null"
+    [domicilios]="domicilios.value() ?? null"
+    [malha]="malha.value() ?? null"
+    [rota]="plano.value()?.rota ?? null"
+    [paradas]="plano.value()?.itens ?? null"
+    [naoAtendidas]="plano.value()?.nao_atendidas ?? null"
+    [esmaecerDomicilios]="true"
+    [rotaComparada]="rotaComparada()?.rota ?? null"
+  />
+</div>

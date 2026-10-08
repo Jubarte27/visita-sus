@@ -1,0 +1,28 @@
+<mat-toolbar class="barra">
+  <a routerLink="/" class="marca">visita-sus</a>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="campo">
+    <mat-label>Equipe</mat-label>
+    <mat-select [value]="selecao.equipeId()" (selectionChange)="escolherEquipe($event.value)">
+      @for (e of equipes.value() ?? []; track e.id) {
+        <mat-option [value]="e.id">{{ e.nome }} · {{ e.ubs.nome }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="campo data">
+    <mat-label>Data do plano</mat-label>
+    <input matInput type="date" [value]="selecao.data()" (change)="escolherData($any($event.target).value)" />
+  </mat-form-field>
+
+  <span class="espaco"></span>
+  @if (selecao.equipeId(); as id) {
+    <a mat-button [routerLink]="['/equipes', id]" routerLinkActive="ativo" [routerLinkActiveOptions]="{ exact: true }">
+      Painel</a>
+    <a mat-button [routerLink]="['/equipes', id, 'relatorio']" routerLinkActive="ativo">Relatório</a>
+  }
+</mat-toolbar>
+
+<main>
+  <router-outlet />
+</main>

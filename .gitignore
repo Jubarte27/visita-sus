@@ -1,11 +1,21 @@
-.venv
-data/*
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+cache/
+
+# dados baixados e gerados (IBGE, cache do osmnx, instâncias, resultados)
+backend/data/
+
+# grafos e geopackages são grandes e regeneráveis; docs/data/instances só versiona meta.json e mapa.html
 *.gpkg
 *.graphml
 
-cache
-__pycache__
+# ambiente
+.env
 
-!instances/
-!instances/**/*.gpkg
-!instances/**/*.graphml
+# frontend
+node_modules/
+frontend/dist/
+frontend/.angular/

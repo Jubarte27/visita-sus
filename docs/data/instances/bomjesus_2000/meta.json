@@ -1,0 +1,94 @@
+{
+  "nome": "bomjesus_2000",
+  "seed": 3,
+  "data_base": "2026-10-08",
+  "ubs": {
+    "lat": -30.0431944,
+    "lon": -51.1563369
+  },
+  "microarea": {
+    "setores": [
+      "431490205000290",
+      "431490205000288",
+      "431490205000289",
+      "431490205000291"
+    ],
+    "bairros": [
+      "Bom Jesus"
+    ],
+    "moradores_censo": 2150,
+    "domicilios_censo": 901,
+    "area_km2": 0.323
+  },
+  "gerado": {
+    "domicilios": 901,
+    "pontos_de_acesso": 610,
+    "edificacoes_ocupadas": 708,
+    "urgentes": 17,
+    "graves": 80,
+    "atrasados": 298,
+    "com_janela": 139,
+    "candidatas_do_dia": 55,
+    "soma_duracao_min": 13300
+  },
+  "grafo": {
+    "nos": 873,
+    "arestas": 1900
+  },
+  "acs": {
+    "jornada_min": 360,
+    "jornada_max_min": 420,
+    "velocidade_m_min": 75.0,
+    "teto_graves": 3
+  },
+  "parametros": {
+    "populacao_alvo": 2000,
+    "p_urgencia": 0.02,
+    "atraso_max": 1.5,
+    "n_candidatas": 40,
+    "condicoes": {
+      "nenhuma": {
+        "prob": 0.45,
+        "w": 1,
+        "P": 60,
+        "s": 10
+      },
+      "hipertensao_diabetes": {
+        "prob": 0.22,
+        "w": 2,
+        "P": 30,
+        "s": 15
+      },
+      "idoso": {
+        "prob": 0.15,
+        "w": 2,
+        "P": 30,
+        "s": 15
+      },
+      "crianca_menor_2": {
+        "prob": 0.06,
+        "w": 3,
+        "P": 30,
+        "s": 20
+      },
+      "gestante": {
+        "prob": 0.05,
+        "w": 3,
+        "P": 30,
+        "s": 25
+      },
+      "acamado": {
+        "prob": 0.05,
+        "w": 4,
+        "P": 15,
+        "s": 30
+      },
+      "tuberculose": {
+        "prob": 0.02,
+        "w": 5,
+        "P": 7,
+        "s": 20
+      }
+    }
+  }
+}
