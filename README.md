@@ -51,6 +51,32 @@ Objetivo definido em [Proposta.pdf](Proposta.pdf)
 - peso do excesso de jornada
 - peso relativo por condição clínica
 
+## Uso
+
+```sh
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+./fetch.sh
+
+# microárea ao redor de uma UBS (coordenada lat,lon); padrão: setores vizinhos até 750 moradores
+.venv/bin/python src/generator.py --ubs=-30.0431944,-51.1563369 --name bomjesus
+.venv/bin/python src/generator.py --ubs=-30.0431944,-51.1563369 --name bomjesus_2000 --populacao 2000 --seed 3
+
+# solver sobre as candidatas do dia
+.venv/bin/python src/solver.py data/instances/bomjesus/candidatas.gpkg data/instances/bomjesus/graph.graphml
+```
+
+A microárea é o setor censitário que contém a UBS mais os setores vizinhos (os mais próximos primeiro) até atingir `--populacao`. O número de domicílios é o do Censo 2022 (V0007), distribuído pelas edificações residenciais do OSM (cada uma comporta área × pavimentos / 80 m² domicílios; casas ficam com 1). A malha a pé e as edificações vêm do OpenStreetMap via Overpass (online, só durante a geração).
+
+Cada instância fica em `data/instances/<nome>/`:
+
+- `graph.graphml`: malha a pé (faixa de 200 m ao redor da microárea); cada domicílio e a UBS são nós, inseridos no ponto da rua em frente à edificação. Arestas têm `length` (m) e `travel_time` (min, a 4,5 km/h).
+- `instance.gpkg`: camada `visits` (linha 0 é a UBS; demais são domicílios com `condicao`, `w` peso clínico, `P` intervalo máximo em dias, `d` dias desde a última visita, `s` duração em min, `tw_start`/`tw_end` janela em min desde o início da jornada, `urgente`, `grave`, `penalidade` = w·(d+1)/P, `candidata`, `node`) e camada `microarea` (setores). `profit`/`cost` repetem `penalidade`/`s` para o `solver.py`.
+- `candidatas.gpkg`: UBS + candidatas do dia (todas as urgentes + as `--candidatas` de maior penalidade), entrada do solver.
+- `meta.json`: setores, contagens do Censo e do que foi gerado, parâmetros.
+- `mapa.html`: mapa interativo (clique nos pontos para ver os domicílios).
+
+Os parâmetros clínicos (probabilidade de cada condição, `w`, `P`, `s`) ficam no topo de `src/generator.py` e são ilustrativos. `--urgencia` e `--atraso` permitem montar os cenários de alta urgência e alto atraso.
+
 ## Ferramentas possivelmente úteis
 
 - Gerador de dados fictícios para teste: <https://github.com/afkummer/ovig>
