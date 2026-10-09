@@ -8,6 +8,7 @@ folium
 gpxpy
 highspy>=1.7  # MILP de referência (solver HiGHS: modelagem, solução inicial e gap)
 scikit-learn  # k-means na divisão em microáreas (P14)
+matplotlib    # gráficos da validação (engine.graficos, P16)
 
 # backend
 django>=5.2

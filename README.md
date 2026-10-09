@@ -3,11 +3,94 @@ Objetivo definido em [docs/Proposta.pdf](docs/Proposta.pdf) (texto em [docs/estr
 
 ## Estrutura
 
-- `backend/engine/`: Python puro: gerador de instâncias (`generator.py`), matriz de tempos (`matrix.py`), pré-processamento (`preprocess.py`, `io.py`), avaliação (`evaluation.py`), construção gulosa (`greedy.py`), ALNS (`alns.py`) e o comando `solve.py`.
+- `backend/engine/`: Python puro, sem Django. Contém o gerador de instâncias (`generator.py`), a matriz de tempos (`matrix.py`), o pré-processamento (`preprocess.py`, `io.py`), a avaliação (`evaluation.py`), a construção gulosa (`greedy.py`), a ALNS (`alns.py`), o MILP (`milp.py`), as exportações (`export.py`), o comando `solve.py` e a validação (`validate.py`, `calibrate.py`, `graficos.py`).
+- `backend/core/`: app Django com modelos, API REST, admin, planejamento da equipe, relatório e os comandos `gerar_instancia`, `importar_instancia` e `validar`. As configurações ficam em `backend/config/`.
 - `backend/legacy/`: notebook antigo do gerador (`data_generator.ipynb`).
-- `backend/data/`: dados baixados e instâncias geradas (fora do git).
+- `backend/data/`: dados baixados, instâncias geradas e resultados (fora do git).
 - `frontend/`: Angular 21 + Material + Leaflet (telas do MVP).
-- `docs/`: proposta, revisão de literatura, artigos, apresentações e amostras de instâncias (`docs/data/instances/`, só `meta.json` e `mapa.html`).
+- `docs/`: proposta, revisão de literatura, artigos, apresentações, roteiro de implementação, [resultados da validação](docs/resultados.md) e amostras de instâncias (`docs/data/instances/`, só `meta.json` e `mapa.html`).
+
+## Como rodar (do zero)
+
+### Pré-requisitos
+
+- **Python 3.12** com `venv`. No Ubuntu: `sudo apt install python3-venv`. Alternativa: [uv](https://docs.astral.sh/uv/).
+- **Docker** com o plugin `compose`, para o PostgreSQL 17. Para usar um PostgreSQL já instalado, aponte as variáveis `POSTGRES_*` para ele.
+- **Node.js 20.19+ ou 22.12+** (exigência do Angular 21). Use o npm 11: o npm 9 do Ubuntu falha neste projeto, e `npx npm@11` resolve.
+- **Internet** para baixar a malha do IBGE (`fetch.sh`, ~55 MB, uma vez) e para gerar instâncias (OpenStreetMap via Overpass, 3 a 5 min por instância). Depois disso, tudo roda offline.
+
+### Variáveis de ambiente
+
+Copie `.env.example` para `.env` **na raiz do repositório**. O mesmo arquivo é lido pelo `docker compose` e pelo Django. Para desenvolvimento local, os valores do exemplo funcionam sem mudanças. Variáveis definidas no ambiente do processo têm precedência sobre o `.env`.
+
+| variável | padrão | para que serve |
+|---|---|---|
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `visitasus` | banco, usuário e senha. O `docker compose` cria o banco com eles na primeira subida. |
+| `POSTGRES_HOST`, `POSTGRES_PORT` | `localhost`, `5432` | onde o Django encontra o banco. Se a porta 5432 já estiver em uso, troque aqui e no `ports` do `docker-compose.yml`. |
+| `DJANGO_SECRET_KEY` | (sem padrão fora do DEBUG) | chave de criptografia do Django. Obrigatória com `DJANGO_DEBUG=false`. Gere uma com `python -c "import secrets; print(secrets.token_urlsafe(50))"`. |
+| `DJANGO_DEBUG` | `false` (`true` no exemplo) | modo de desenvolvimento: páginas de erro detalhadas e navegador da API. |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | nomes pelos quais o backend aceita ser acessado. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | origens do frontend autorizadas a chamar a API. Com o `ng serve` e o proxy, só importa se o frontend for servido de outro endereço. |
+| `INSTANCES_DIR` (opcional) | `backend/data/instances` | pasta das instâncias (grafo, matriz, arquivos do gerador). |
+| `PLANEJAMENTO_PARALELO` (opcional) | `true` | planeja os ACS de uma equipe em processos paralelos. Use `false` para depurar. |
+| `ALERTA_EXCESSO_MIN`, `ALERTA_FRACAO_ATRASADOS` (opcionais) | `30`, `0.25` | limiares do alerta de sobrecarga no relatório da equipe: excesso de jornada (min) e fração de domicílios atrasados sem visita. |
+
+### Passo a passo
+
+```sh
+# 1. ambiente e banco (na raiz do repositório)
+cp .env.example .env
+docker compose up -d db                 # PostgreSQL 17; `docker compose ps` deve mostrar "healthy"
+
+# 2. backend
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+./fetch.sh                              # malha de setores do Censo 2022 em data/ (uma vez)
+.venv/bin/python manage.py migrate
+
+# 3. dados: gera a instância (rede, alguns minutos) e importa no banco
+.venv/bin/python manage.py gerar_instancia --ubs=-30.0431944,-51.1563369 --name bomjesus
+# opcional, equipe com 4 ACS:
+.venv/bin/python manage.py gerar_instancia --ubs=-30.0431944,-51.1563369 --name bomjesus_eq4 --acs 4
+# se a instância já foi gerada com `python -m engine.generator`, basta importar:
+# .venv/bin/python manage.py importar_instancia data/instances/bomjesus
+
+# 4. backend no ar (deixe este terminal aberto)
+.venv/bin/python manage.py runserver    # API em http://localhost:8000/api/ (teste: /api/health/)
+
+# 5. frontend, em outro terminal
+cd frontend
+npx npm@11 install
+npx ng serve                            # http://localhost:4200 (o /api é encaminhado ao Django)
+```
+
+Para o admin do Django (`http://localhost:8000/admin/`), crie um usuário com `.venv/bin/python manage.py createsuperuser`.
+
+### Usando a aplicação
+
+1. Abra `http://localhost:4200`, escolha a **equipe** (por exemplo, "eSF Bom Jesus"; uma instância de equipe vira "eSF <nome>") e a **data** na barra superior.
+2. No **painel da equipe**, escolha o método (ALNS ou guloso) e clique em **Planejar dia**. Cada ACS é planejado em paralelo, em poucos segundos, e aparece um card com visitas, caminhada, jornada e não atendidas.
+3. Abra o **plano de um ACS** para ver a rota no mapa, o itinerário com horários e motivos, as visitas não atendidas e os selos de conferência (urgências primeiro, graves ≤ K e a barra de jornada). Os botões **CSV** e **GPX** exportam o itinerário. O GPX abre em apps de mapa e em <https://gpx.studio>.
+4. O **relatório da equipe** mostra a demanda não atendida por microárea e destaca as sobrecarregadas.
+
+### Testes
+
+```sh
+cd backend
+.venv/bin/python -m pytest tests/engine   # só o motor: não precisa de banco nem de rede
+.venv/bin/python -m pytest                # tudo: precisa do banco no ar (docker compose up -d db)
+
+cd ../frontend
+npx ng test --watch=false
+```
+
+### Problemas comuns
+
+- **`OperationalError: connection refused` no `migrate` ou nos testes:** o banco não está no ar. Rode `docker compose up -d db` e confira a porta em `.env`.
+- **`ImproperlyConfigured: Set the DJANGO_SECRET_KEY`:** falta o `.env` na raiz, ou `DJANGO_DEBUG=false` está sem chave.
+- **`npm install` falha com "edgesOut":** é o npm 9. Use `npx npm@11 install`.
+- **`gerar_instancia` demora ou falha com erro HTTP:** o Overpass (OpenStreetMap) está lento ou limitando requisições. Espere e rode de novo: as respostas já baixadas ficam em cache em `backend/data/osmnx_cache/`.
+- **O frontend abre sem equipes:** nenhuma instância foi importada (passo 3), ou o `runserver` não está no ar.
 
 ## O que fazer
 
@@ -59,7 +142,7 @@ Objetivo definido em [docs/Proposta.pdf](docs/Proposta.pdf) (texto em [docs/estr
 - peso do excesso de jornada
 - peso relativo por condição clínica
 
-## Uso
+## Motor pela linha de comando (sem banco)
 
 Comandos a partir de `backend/`:
 

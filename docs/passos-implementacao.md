@@ -37,8 +37,8 @@ O problema e o modelo estão em [estrutura-projeto.md](estrutura-projeto.md) (te
 | P13 | Frontend: relatório da equipe | P12 | ☑ |
 | P14 | Gerador com vários ACS por equipe | P08 | ☑ |
 | P15 | MILP e comparação de métodos | P06 | ☑ |
-| P16 | Validação experimental | P14, P15 | ☐ |
-| P17 | Fechamento do MVP | todos | ☐ |
+| P16 | Validação experimental | P14, P15 | ☑ |
+| P17 | Fechamento do MVP | todos | ◐ feito; falta o ensaio com banco e frontend numa máquina com Docker e Node |
 | P18+ | Pós-MVP | P17 | ☐ |
 
 **Marcos:**
@@ -83,7 +83,7 @@ O gerador (`generator.py`, feito pelo Eduardo) é o ponto de partida e é ajusta
 | D4 | Algoritmo isolado | `backend/engine/` em Python puro, sem importar Django. | adotada |
 | D5 | Urgente com janela | O gerador cria urgentes **sem janela**. | a confirmar |
 | D6 | Urgentes graves e teto `K` | Contam no `K`, mas são obrigatórias. O `K` limita só as graves não urgentes. | a confirmar |
-| D7 | β e γ iniciais | β = 30, γ = 2. Calibrar no P16. | a confirmar |
+| D7 | β e γ | β = 30, γ = 20 (calibrados no P16, ver [resultados.md](resultados.md)). ALNS: destruição 20–50%, T0 = 200, resfriamento 0,999. | adotada |
 | D8 | Dias desde a última visita | O banco guarda `ultima_visita` (data). O `d` é calculado para a data do plano. | adotada |
 
 ---
@@ -579,6 +579,10 @@ O gerador (`generator.py`, feito pelo Eduardo) é o ponto de partida e é ajusta
 
 **Pronto quando:** o CSV e os gráficos existem para todos os cenários, e um resumo curto dos resultados está em `docs/resultados.md`.
 
+**Notas:**
+- Tabelas e gráficos em [docs/resultados/](resultados/) (gerados por `engine.graficos`); resumo em [resultados.md](resultados.md).
+- Uma `bomjesus` gerada de novo em 08/10 reproduziu exatamente o objetivo do cenário base (3185,9).
+
 ---
 
 ### P17: Fechamento do MVP
@@ -594,6 +598,12 @@ O gerador (`generator.py`, feito pelo Eduardo) é o ponto de partida e é ajusta
 - ver no mapa a rota de cada ACS respeitando urgências, janelas, jornada e teto de graves;
 - exportar CSV/GPX;
 - abrir o relatório da equipe com a demanda não atendida por microárea.
+
+**Notas (08/10):**
+- README com o manual completo: pré-requisitos, variáveis de ambiente, passo a passo do zero, uso das telas, testes e problemas comuns. Variáveis opcionais documentadas no `.env.example`.
+- Limpeza: o solver antigo já tinha saído. Faltava `matplotlib` no `requirements.txt` (usado por `engine.graficos`). `ruff check --select F,E9` limpo.
+- Ensaio feito numa máquina **sem Docker e sem Node**: venv novo + `requirements.txt`, `fetch.sh`, `engine.generator` (3 min 47 s), `engine.solve --metodo alns --export csv,gpx,geojson` e `engine.compare` funcionam. `pytest tests/engine`: 128 passaram. Os 30 testes que usam banco não rodaram (sem PostgreSQL).
+- **Falta:** rodar o critério de pronto acima com `docker compose`, `migrate`, `runserver` e `ng serve`, mais o `pytest` completo e o `ng test`. Também falta abrir um GPX num visualizador (pendência do P07).
 
 ---
 

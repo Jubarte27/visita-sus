@@ -11,7 +11,6 @@ grade discreta, texto nas cores de texto.
 import argparse
 import csv
 import statistics
-from collections import defaultdict
 from pathlib import Path
 
 import matplotlib
