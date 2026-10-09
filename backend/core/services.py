@@ -4,11 +4,17 @@ Ponte entre o banco e o engine: monta a Instance do dia de um ACS, roda o solver
 Grafo e matriz de tempos vêm dos arquivos da instância (Microarea.path), com cache em memória. A matriz
 foi calculada na velocidade do gerador (meta.acs.velocidade_m_min); se o ACS tiver outra velocidade, os
 tempos são reescalados.
+
+Com PLANEJAMENTO_PARALELO, os solvers rodam num pool de processos compartilhado pelo servidor: os ACS de uma
+equipe rodam em paralelo, e requisições simultâneas de ACS diferentes (o painel planeja um ACS por requisição,
+para mostrar o progresso de cada um) também, sem disputar o GIL.
 """
 
 import multiprocessing
 import os
+import threading
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -28,6 +34,35 @@ from .models import Agente, Domicilio, Equipe, ItemRoteiro, Microarea, NaoAtendi
 
 METODOS = METHODS
 VELOCIDADE_PADRAO = 75.0
+
+_pool: ProcessPoolExecutor | None = None
+_pool_lock = threading.Lock()
+
+
+def pool() -> ProcessPoolExecutor:
+    """Pool de processos (spawn) criado na primeira vez e reaproveitado pelas requisições seguintes."""
+    global _pool
+    with _pool_lock:
+        if _pool is None:
+            _pool = ProcessPoolExecutor(os.cpu_count() or 1, mp_context=multiprocessing.get_context("spawn"))
+        return _pool
+
+
+def _descartar_pool() -> None:
+    global _pool
+    with _pool_lock:
+        _pool = None
+
+
+def resolver(metodos: list[str], insts: list, params: Params, paralelo: bool | None = None) -> list[Solution]:
+    """Roda os solvers (um por instância), no pool se `paralelo` (padrão: settings.PLANEJAMENTO_PARALELO)."""
+    paralelo = settings.PLANEJAMENTO_PARALELO if paralelo is None else paralelo
+    if paralelo:
+        try:
+            return list(pool().map(run, metodos, insts, [params] * len(insts)))
+        except BrokenProcessPool:  # um processo do pool morreu: recria na próxima vez e roda aqui mesmo
+            _descartar_pool()
+    return [run(m, inst, params) for m, inst in zip(metodos, insts)]
 
 
 @lru_cache(maxsize=16)
@@ -85,7 +120,7 @@ def montar_instancia(agente: Agente, data: date, params: Params) -> Preprocessed
 def planejar(agente: Agente, data: date, metodo: str = "alns", params: Params | None = None) -> Plano:
     params = params or Params()
     pre = montar_instancia(agente, data, params)
-    return gravar(agente, data, metodo, params, pre, run(metodo, pre.instance, params))
+    return gravar(agente, data, metodo, params, pre, resolver([metodo], [pre.instance], params)[0])
 
 
 def planejar_equipe(equipe: Equipe, data: date, metodo: str = "alns", params: Params | None = None,
@@ -98,13 +133,7 @@ def planejar_equipe(equipe: Equipe, data: date, metodo: str = "alns", params: Pa
     params = params or Params()
     agentes = list(Agente.objects.filter(microarea__equipe=equipe).select_related("microarea").order_by("microarea__nome"))
     pres = [montar_instancia(a, data, params) for a in agentes]
-    paralelo = settings.PLANEJAMENTO_PARALELO if paralelo is None else paralelo
-    if paralelo and len(agentes) > 1:
-        workers = min(len(agentes), os.cpu_count() or 1)
-        with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
-            sols = list(pool.map(run, [metodo] * len(pres), [p.instance for p in pres], [params] * len(pres)))
-    else:
-        sols = [run(metodo, p.instance, params) for p in pres]
+    sols = resolver([metodo] * len(pres), [p.instance for p in pres], params, paralelo)
     with transaction.atomic():
         return [gravar(a, data, metodo, params, pre, sol) for a, pre, sol in zip(agentes, pres, sols)]
 

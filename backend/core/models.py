@@ -62,6 +62,17 @@ class Microarea(models.Model):
     def path(self) -> Path:
         return Path(settings.INSTANCES_DIR) / self.instancia_dir
 
+    @property
+    def numero(self) -> int:
+        """Número da microárea na equipe (o id do gerador numa instância de equipe; 1 numa instância de um ACS)."""
+        return int((self.meta or {}).get("microarea", {}).get("id") or 1)
+
+    @property
+    def rotulo(self) -> str:
+        """Nome de exibição: "Microárea 02 · Bom Jesus" (o `nome` é a chave da importação)."""
+        from .nomes import rotulo_microarea
+        return rotulo_microarea(self.numero, self.bairros or [])
+
 
 class Agente(models.Model):
     microarea = models.OneToOneField(Microarea, on_delete=models.CASCADE, related_name="agente")

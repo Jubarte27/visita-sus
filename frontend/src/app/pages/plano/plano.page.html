@@ -1,35 +1,47 @@
 <div class="layout">
   <aside>
     @if (plano.isLoading()) { <mat-progress-bar mode="indeterminate" /> }
-    @if (plano.error()) { <p class="erro">Plano não encontrado.</p> }
+    @if (plano.error()) {
+      <app-estado tipo="erro" icone="search_off" titulo="Plano não encontrado"
+        texto="Ele pode ter sido apagado ou substituído por um replanejamento. Volte ao painel e abra o plano mais recente.">
+        <a mat-stroked-button routerLink="/"><mat-icon>home</mat-icon> Início</a>
+      </app-estado>
+    }
     @if (plano.value(); as p) {
       @let m = p.metricas;
       <a class="voltar" [routerLink]="microarea.value() ? ['/equipes', microarea.value()!.equipe.id] : ['/']">
         <mat-icon>arrow_back</mat-icon> painel da equipe</a>
       <h2>{{ p.agente.nome }}</h2>
-      <p class="sub">{{ p.data | date: 'dd/MM/yyyy' }} · {{ p.metodo === 'alns' ? 'ALNS' : p.metodo }} · plano {{ p.id }}
-        @if (microarea.value(); as ma) { · <a [routerLink]="['/microareas', ma.id]">microárea {{ ma.nome }}</a> }</p>
+      <p class="sub">ACS · {{ p.data | date: 'dd/MM/yyyy' }}
+        @if (microarea.value(); as ma) { · <a [routerLink]="['/microareas', ma.id]">{{ ma.rotulo }}</a> }</p>
 
       <div class="numeros">
-        <div><b>{{ m.visitas }}</b><span>visitas de {{ m.candidatas }}</span></div>
+        <div><b>{{ m.visitas }}</b><span>visitas no dia</span></div>
         <div><b>{{ m.caminhada_min | number: '1.0-0' }}</b><span>min a pé</span></div>
-        <div><b>{{ m.retorno }}</b><span>retorno à UBS</span></div>
-        <div [class.alerta]="m.excesso_min > 0"><b>{{ m.excesso_min | number: '1.0-0' }}</b><span>min de excesso</span></div>
+        <div><b>{{ m.retorno }}</b><span>volta à UBS</span></div>
+        <div [class.alerta]="m.excesso_min >= 1"><b>{{ m.excesso_min | number: '1.0-0' }}</b><span>min de hora extra</span></div>
       </div>
 
-      <app-jornada-bar [H]="m.H" [T]="m.jornada_min" [Tmax]="m.jornada_max_min" [horaInicio]="p.hora_inicio" />
+      <app-linha-do-tempo [itens]="p.itens" [H]="m.H" [T]="m.jornada_min" [Tmax]="m.jornada_max_min"
+        [horaInicio]="p.hora_inicio" (destacar)="destacar($event)" />
 
       <div class="selos">
         @for (s of selos(); track s.rotulo) {
-          <span class="selo" [class.falha]="!s.ok" [matTooltip]="s.detalhe">{{ s.ok ? '✓' : '✗' }} {{ s.rotulo }}</span>
+          <span class="selo" [class.falha]="!s.ok" [matTooltip]="s.ajuda + ' ' + s.detalhe + '.'" tabindex="0">
+            <span class="ic" aria-hidden="true">{{ s.ok ? '✓' : '✗' }}</span> {{ s.rotulo }}</span>
         }
       </div>
 
-      <p class="detalhes">objetivo {{ m.objetivo | number: '1.1-1' }} · penalidade residual
-        {{ m.penalidade_residual | number: '1.1-1' }} (= {{ m.penalidade_residual_min | number: '1.0-0' }} min)
-        @if (m.seeds_stats; as st) { · {{ st.sementes.length }} sementes: média {{ st.media | number: '1.1-1' }},
-          desvio {{ st.desvio | number: '1.1-1' }} }
-        · {{ m.runtime_s | number: '1.1-1' }} s</p>
+      @if (p.violacoes.length) {
+        <div class="violacoes" role="alert">
+          <b><span class="ic" aria-hidden="true">⚠</span> Este plano descumpre {{ p.violacoes.length }} regra(s):</b>
+          <ul>
+            @for (v of p.violacoes; track $index) {
+              <li>{{ violacao(v.tipo) }}@if (v.quanto) { <small> ({{ v.quanto | number: '1.0-1' }}{{ v.tipo === 'teto_graves' ? ' caso(s) a mais' : ' min' }})</small> }</li>
+            }
+          </ul>
+        </div>
+      }
 
       <div class="exportar">
         <a mat-stroked-button [href]="csv()" download><mat-icon>table_view</mat-icon> CSV</a>
@@ -38,37 +50,62 @@
 
       <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
         <mat-tab [label]="'Itinerário (' + p.itens.length + ')'">
+          <p class="legenda-lista">
+            <span><app-risco [w]="3" /> risco</span>
+            <span><app-intervalo [dias]="20" [P]="30" /> dias desde a última visita; o traço é o intervalo máximo</span>
+          </p>
           <table class="lista">
             <tr><th>#</th><th>horário</th><th>domicílio</th><th>motivo</th><th class="num">a pé</th></tr>
             @for (i of p.itens; track i.ordem) {
-              <tr (click)="abrir('parada-' + i.ordem)" tabindex="0" (keydown.enter)="abrir('parada-' + i.ordem)">
+              <tr (click)="abrir('parada-' + i.ordem)" tabindex="0" (keydown.enter)="abrir('parada-' + i.ordem)"
+                  (mouseenter)="destacar(i.ordem)" (mouseleave)="destacar(null)" [class.destacada]="destaque() === i.ordem">
                 <td><span class="num-parada" [style.background]="cor(i.w)" [class.urgente]="i.urgente">{{ i.ordem }}</span></td>
-                <td>{{ i.chegada }}–{{ i.fim }}@if (i.espera_min > 0.5) { <small> (espera {{ i.espera_min | number: '1.0-0' }})</small> }</td>
-                <td>{{ condicao(i.condicao) }}@if (i.grave) { <small> · grave</small> }</td>
+                <td class="hora">{{ i.chegada }}–{{ i.fim }}@if (i.espera_min > 0.5) { <small>espera {{ i.espera_min | number: '1.0-0' }} min</small> }</td>
+                <td>
+                  <span class="dom"><b>{{ condicao(i.condicao) }}</b> <app-risco [w]="i.w" />
+                    @if (i.grave) { <span class="chip-mini">grave</span> }</span>
+                  <app-intervalo [dias]="i.dias_sem_visita" [P]="i.P" />
+                </td>
                 <td><span class="motivo" [attr.data-m]="i.motivo">{{ motivoVisita[i.motivo] }}</span></td>
-                <td class="num">{{ i.caminhada_min | number: '1.1-1' }}</td>
+                <td class="num">{{ i.caminhada_min | number: '1.0-0' }} min</td>
               </tr>
             }
-            <tr class="retorno"><td>⌂</td><td>{{ m.retorno }}</td><td colspan="3">retorno à UBS</td></tr>
+            <tr class="retorno"><td>⌂</td><td class="hora">{{ m.retorno }}</td><td colspan="3">volta à UBS</td></tr>
           </table>
         </mat-tab>
         <mat-tab [label]="'Não atendidas (' + p.nao_atendidas.length + ')'">
           <p class="resumo-fora">@for (f of foraPorMotivo(); track f[0]) { <span>{{ f[0] }}: {{ f[1] }}</span> }
-            · {{ m.fora_das_candidatas }} viáveis fora das candidatas do dia</p>
+            · outros {{ m.fora_das_candidatas }} domicílios, de menor prioridade, nem entraram na lista do dia</p>
           <table class="lista">
-            <tr><th>domicílio</th><th>motivo</th><th class="num">pen.</th><th class="num">dias/P</th></tr>
+            <tr><th>domicílio</th><th>por que ficou de fora</th></tr>
             @for (n of p.nao_atendidas; track n.domicilio) {
               <tr (click)="abrir('fora-' + n.domicilio)" tabindex="0" (keydown.enter)="abrir('fora-' + n.domicilio)">
-                <td><span class="x" [style.color]="cor(n.w)">×</span> {{ condicao(n.condicao) }}
-                  @if (n.urgente) { <b class="erro">urgente</b> }</td>
+                <td>
+                  <span class="dom"><span class="x" [style.color]="cor(n.w)" aria-hidden="true">×</span>
+                    <b>{{ condicao(n.condicao) }}</b> <app-risco [w]="n.w" />
+                    @if (n.urgente) { <span class="chip-mini urgente">urgente</span> }
+                    @if (n.grave) { <span class="chip-mini">grave</span> }</span>
+                  <app-intervalo [dias]="n.dias_sem_visita" [P]="n.P" />
+                </td>
                 <td>{{ motivoFora[n.motivo] }}</td>
-                <td class="num">{{ n.penalidade | number: '1.2-2' }}</td>
-                <td class="num">{{ n.dias_sem_visita }}@if (n.atraso_dias) { <small class="erro"> +{{ n.atraso_dias }}</small> }</td>
               </tr>
             }
           </table>
         </mat-tab>
-        <mat-tab label="Comparar métodos">
+        <mat-tab label="Detalhes técnicos">
+          <dl class="tecnico">
+            <dt>método</dt><dd>{{ p.metodo === 'alns' ? 'ALNS' : p.metodo }} · plano {{ p.id }}</dd>
+            <dt>objetivo</dt><dd>{{ m.objetivo | number: '1.1-1' }}</dd>
+            <dt>penalidade residual</dt><dd>{{ m.penalidade_residual | number: '1.1-1' }}
+              (= {{ m.penalidade_residual_min | number: '1.0-0' }} min equivalentes)</dd>
+            <dt>candidatas do dia</dt><dd>{{ m.candidatas }} ({{ m.fora_das_candidatas }} viáveis fora da lista)</dd>
+            @if (m.seeds_stats; as st) {
+              <dt>sementes</dt><dd>{{ st.sementes.length }}: média {{ st.media | number: '1.1-1' }},
+                desvio {{ st.desvio | number: '1.1-1' }}</dd>
+            }
+            <dt>tempo de cálculo</dt><dd>{{ m.runtime_s | number: '1.1-1' }} s</dd>
+          </dl>
+          <h3>Comparar métodos</h3>
           <p class="detalhes">Guloso × ALNS × MILP (referência exata) na instância deste plano. O MILP só fecha a
             otimalidade em instâncias pequenas: use uma subinstância (8–15 candidatas) para medir o gap da ALNS.</p>
           <div class="comparar-campos">
@@ -114,5 +151,6 @@
     [naoAtendidas]="plano.value()?.nao_atendidas ?? null"
     [esmaecerDomicilios]="true"
     [rotaComparada]="rotaComparada()?.rota ?? null"
+    [horaInicio]="plano.value()?.hora_inicio ?? '08:00:00'"
   />
 </div>

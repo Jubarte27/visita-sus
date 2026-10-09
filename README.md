@@ -32,7 +32,7 @@ Copie `.env.example` para `.env` **na raiz do repositório**. O mesmo arquivo é
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | nomes pelos quais o backend aceita ser acessado. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | origens do frontend autorizadas a chamar a API. Com o `ng serve` e o proxy, só importa se o frontend for servido de outro endereço. |
 | `INSTANCES_DIR` (opcional) | `backend/data/instances` | pasta das instâncias (grafo, matriz, arquivos do gerador). |
-| `PLANEJAMENTO_PARALELO` (opcional) | `true` | planeja os ACS de uma equipe em processos paralelos. Use `false` para depurar. |
+| `PLANEJAMENTO_PARALELO` (opcional) | `true` | roda os solvers num pool de processos: os ACS de uma equipe, e os planejamentos simultâneos de ACS diferentes, em paralelo. Use `false` para depurar. |
 | `ALERTA_EXCESSO_MIN`, `ALERTA_FRACAO_ATRASADOS` (opcionais) | `30`, `0.25` | limiares do alerta de sobrecarga no relatório da equipe: excesso de jornada (min) e fração de domicílios atrasados sem visita. |
 
 ### Passo a passo
@@ -65,6 +65,8 @@ npx ng serve                            # http://localhost:4200 (o /api é encam
 ```
 
 Para o admin do Django (`http://localhost:8000/admin/`), crie um usuário com `.venv/bin/python manage.py createsuperuser`.
+
+Instâncias importadas antes dos nomes de exibição (ACS "ACS bomjesus", equipe "eSF bomjesus_eq4") passam aos nomes novos com `.venv/bin/python manage.py nomes_ficticios` (use `--dry-run` para só ver as mudanças).
 
 ### Usando a aplicação
 

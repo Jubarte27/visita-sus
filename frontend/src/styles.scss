@@ -3,10 +3,35 @@
 html {
   color-scheme: light;
   @include mat.theme((
-    color: (primary: mat.$azure-palette, tertiary: mat.$blue-palette),
+    color: (primary: mat.$cyan-palette, tertiary: mat.$spring-green-palette),
     typography: Roboto,
     density: 0,
   ));
+}
+
+// Tokens de cor do app. Os de status são fixos e sempre aparecem com ícone + rótulo, nunca só pela cor.
+:root {
+  --vs-bom: #0ca30c;
+  --vs-bom-fundo: #e7f5e7;
+  --vs-aviso: #fab219;
+  --vs-aviso-texto: #8a5d00; // aviso escurecido para texto e ícone sobre fundo claro
+  --vs-aviso-fundo: #fff4d6;
+  --vs-critico: #d03b3b;
+  --vs-critico-fundo: #fdecec;
+  --vs-critico-forte: #f9d6d6;
+  --vs-serie: #2a78d6;       // série única dos gráficos e rota no mapa
+  --vs-serie-2: #eb6834;     // segunda série (rota comparada, atrasados sem visita)
+  --vs-texto: #0b0b0b;
+  --vs-texto-2: #52514e;
+  --vs-grade: #d8d7d3;
+
+  // escala de espaçamento: use estes passos em vez de valores soltos
+  --esp-1: 4px;
+  --esp-2: 8px;
+  --esp-3: 12px;
+  --esp-4: 16px;
+  --esp-5: 24px;
+  --esp-6: 32px;
 }
 
 html, body {
@@ -16,9 +41,22 @@ html, body {
 
 body {
   font-family: Roboto, 'Helvetica Neue', sans-serif;
+  line-height: 1.5;
   background: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
 }
+
+// links de texto (os botões do Material têm estilo próprio): cor primária, sublinhado só no hover
+a:not(.mat-mdc-button-base) {
+  color: var(--mat-sys-primary);
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 2px;
+  &:hover { text-decoration: underline; text-underline-offset: 3px; }
+  &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 2px; }
+}
+
+h1, h2, h3 { line-height: 1.25; }
 
 // popups do Leaflet: tabela compacta de domicílios
 .leaflet-popup-content table.domicilios {
@@ -34,7 +72,7 @@ body {
 
 .legenda-mapa {
   background: white;
-  padding: 6px 8px;
+  padding: var(--esp-2) var(--esp-3);
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
   font: 12px/1.5 Roboto, sans-serif;
@@ -63,7 +101,7 @@ body {
 .parada {
   width: 20px;
   height: 20px;
-  border: 2px solid #1565c0;
+  border: 2px solid var(--vs-serie);
   border-radius: 50%;
   color: #000;
   font: bold 11px/20px Roboto, sans-serif;
@@ -78,4 +116,114 @@ body {
   text-align: center;
   text-shadow: 0 0 2px #fff, 0 0 2px #fff;
   opacity: .9;
+}
+
+// impressão (relatório em PDF): só o conteúdo, sem a barra do app nem os botões
+@media print {
+  mat-toolbar, .no-print { display: none !important; }
+  main { padding: 0 !important; }
+  body { background: #fff; }
+  a { color: inherit; text-decoration: none; }
+}
+
+// popup de um ponto de acesso do mapa: um cartão por domicílio
+.popup-ponto {
+  font: 12px/1.4 Roboto, sans-serif;
+  max-height: 320px;
+  overflow-y: auto;
+  min-width: 260px;
+  .titulo { font-weight: 500; margin-bottom: var(--esp-1); }
+  .dom-card { padding: var(--esp-2) 0; border-top: 1px solid var(--vs-grade); }
+  .dom-card > div + div { margin-top: 6px; }
+  .t { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .t b { font-weight: 500; }
+  .cod { margin-left: auto; font-size: 11px; color: var(--vs-texto-2); }
+  .m { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; color: var(--vs-texto-2); font-size: 11px; }
+  .m .material-icons { font-size: 14px; margin-left: 8px; color: var(--vs-texto-2); }
+  .m .material-icons:first-child { margin-left: 0; }
+}
+
+// legenda do mapa (recolhível) e realces do plano
+.legenda-mapa {
+  summary { cursor: pointer; font-weight: 500; }
+  ul { list-style: none; margin: var(--esp-2) 0 0; padding: 0; }
+  li { white-space: nowrap; line-height: 1.7; }
+  li.sub { color: var(--vs-texto-2); }
+  .cor { margin: 0 6px 0 0; border-radius: 50%; }
+  .simbolo { display: inline-block; width: 13px; margin-right: 6px; text-align: center; font-weight: 700; }
+  .simbolo.borda { -webkit-text-stroke: 1px #000; }
+  .parada-mini { border: 1px solid var(--vs-serie); border-radius: 50%; font-size: 9px; line-height: 12px; }
+  .seta-mini { color: var(--vs-serie); }
+}
+
+.seta-rota {
+  width: 12px;
+  height: 12px;
+  font-size: 11px;
+  line-height: 12px;
+  text-align: center;
+  color: #0b4f9e;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+}
+
+.leaflet-marker-icon.destacada {
+  z-index: 10000 !important;
+  .parada { transform: scale(1.5); box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--vs-texto); }
+}
+
+// selo de situação da microárea (relatório e painel): ícone + rótulo, a cor reforça
+.situacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--mat-sys-surface-container-high);
+  .ic { font-weight: 700; }
+  &[data-s='ok'] .ic { color: var(--vs-bom); }
+  &[data-s='atencao'] { background: var(--vs-aviso-fundo); .ic { color: var(--vs-aviso-texto); } }
+  &[data-s='sobrecarga'] { background: var(--vs-critico-forte); .ic { color: var(--vs-critico); } }
+  &[data-s='sem_plano'] { color: var(--mat-sys-on-surface-variant); }
+}
+
+// medidor de risco (5 barrinhas) e barra do intervalo entre visitas: usados nas listas e nos popups do mapa
+.risco-medidor {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 14px;
+  vertical-align: -2px;
+  i { width: 4px; border-radius: 1px; background: var(--vs-grade); }
+  i:nth-child(1) { height: 5px; }
+  i:nth-child(2) { height: 7px; }
+  i:nth-child(3) { height: 9px; }
+  i:nth-child(4) { height: 11px; }
+  i:nth-child(5) { height: 13px; }
+}
+
+.intervalo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: 11px;
+  color: var(--vs-texto-2);
+  .trilho { position: relative; width: 84px; height: 6px; border-radius: 3px; background: var(--vs-grade); }
+  .cheio { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--vs-serie); }
+  .limite { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--vs-texto); }
+  &[data-estado='vence'] { .cheio { background: var(--vs-aviso); } .rotulo { color: var(--vs-aviso-texto); font-weight: 500; } }
+  &[data-estado='atrasado'] { .cheio { background: var(--vs-serie-2); } .rotulo { color: #b3441a; font-weight: 500; } }
+}
+
+.chip-mini {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+  vertical-align: 1px;
+  background: var(--mat-sys-surface-container-highest);
+  &.urgente { background: var(--vs-critico-forte); color: #8c1d1d; }
 }

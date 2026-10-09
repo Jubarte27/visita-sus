@@ -12,18 +12,21 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 
 import { Comparacao, MetodoComparado } from '../../core/models';
-import { ROTULO_MOTIVO_NAO_ATENDIDA, ROTULO_MOTIVO_VISITA, selosDoPlano } from '../../core/plano-utils';
+import { ROTULO_MOTIVO_NAO_ATENDIDA, ROTULO_MOTIVO_VISITA, ROTULO_VIOLACAO, selosDoPlano } from '../../core/plano-utils';
 import { MicroareaService } from '../../core/services/microarea.service';
 import { PlanoService } from '../../core/services/plano.service';
-import { JornadaBarComponent } from '../../shared/jornada/jornada-bar.component';
+import { EstadoComponent } from '../../shared/estado/estado.component';
+import { LinhaDoTempoComponent } from '../../shared/linha-do-tempo/linha-do-tempo.component';
 import { MapComponent } from '../../shared/map/map.component';
+import { IntervaloComponent, RiscoComponent } from '../../shared/visuais/visuais';
 import { corDoPeso, nomeCondicao } from '../../shared/map/map-utils';
 
 /** Plano do ACS (Apêndice F, tela 2): rota no mapa, itinerário, não atendidas e conferência das regras. */
 @Component({
   selector: 'app-plano-page',
   imports: [
-    DatePipe, DecimalPipe, PercentPipe, RouterLink, MapComponent, JornadaBarComponent, MatButtonModule, MatIconModule,
+    DatePipe, DecimalPipe, PercentPipe, RouterLink, MapComponent, EstadoComponent, LinhaDoTempoComponent, MatButtonModule,
+    MatIconModule, RiscoComponent, IntervaloComponent,
     MatProgressBarModule, MatTabsModule, MatTooltipModule, FormsModule, MatFormFieldModule, MatInputModule,
   ],
   templateUrl: './plano.page.html',
@@ -70,6 +73,8 @@ export class PlanoPage {
   protected readonly motivoFora = ROTULO_MOTIVO_NAO_ATENDIDA;
   protected readonly cor = corDoPeso;
   protected readonly condicao = nomeCondicao;
+  /** Parada destacada (ponteiro na lista ou na linha do tempo), também destacada no mapa. */
+  protected readonly destaque = signal<number | null>(null);
 
   protected readonly comparacao = signal<Comparacao | null>(null);
   protected readonly comparando = signal(false);
@@ -108,5 +113,14 @@ export class PlanoPage {
 
   protected abrir(chave: string): void {
     this.mapa()?.abrir(chave);
+  }
+
+  protected destacar(ordem: number | null): void {
+    this.destaque.set(ordem);
+    this.mapa()?.destacar(ordem === null ? null : `parada-${ordem}`);
+  }
+
+  protected violacao(tipo: string): string {
+    return ROTULO_VIOLACAO[tipo] ?? tipo;
   }
 }

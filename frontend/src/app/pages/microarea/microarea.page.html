@@ -4,13 +4,14 @@
       <mat-progress-bar mode="indeterminate" />
     }
     @if (microarea.error() || domicilios.error()) {
-      <p class="erro">Não foi possível carregar a microárea. O backend está no ar?</p>
+      <app-estado tipo="erro" icone="cloud_off" titulo="Não foi possível carregar a microárea"
+        texto="O backend parece fora do ar, ou os arquivos da instância não estão em backend/data/instances." />
     }
     @if (microarea.value(); as m) {
-      <h2>{{ m.nome }}</h2>
+      <h2>{{ m.rotulo }}</h2>
       <p class="sub">
         <a [routerLink]="['/equipes', m.equipe.id]">{{ m.equipe.nome }}</a> · {{ m.ubs.nome }}
-        @if (m.agente) { · {{ m.agente.nome }} }
+        @if (m.agente) { · ACS {{ m.agente.nome }} }
       </p>
       <dl>
         <dt>bairros</dt><dd>{{ m.bairros.join(', ') || '—' }}</dd>
@@ -40,8 +41,8 @@
           </table>
         </mat-card-content>
       </mat-card>
-      <p class="dica">Clique num ponto do mapa para ver os domicílios. Tamanho = nº de domicílios no ponto; borda
-        grossa = urgente; cor = peso clínico.</p>
+      <p class="dica">Clique num ponto do mapa para ver os domicílios dele. Cor = risco do domicílio; círculo maior =
+        mais domicílios no mesmo ponto; borda grossa = urgente.</p>
     }
   </aside>
   <app-map

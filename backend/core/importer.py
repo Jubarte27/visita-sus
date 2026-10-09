@@ -19,6 +19,7 @@ from shapely.geometry import mapping
 from engine.io import ensure_matrix, load_instance_files
 
 from .models import Agente, Domicilio, Equipe, Microarea, Ubs
+from .nomes import nome_equipe, nome_ficticio
 
 
 class ImportacaoError(Exception):
@@ -55,7 +56,8 @@ def importar_instancia(path: str | Path, equipe: str | None = None, agente: str 
     """
     Importa uma instância e devolve as microáreas criadas ou atualizadas: uma, ou N se a instância for de equipe
     (gerador com --acs N: meta.equipe + coluna `microarea` em visits). Numa equipe, as microáreas se chamam
-    <instância>_<k>, compartilham grafo e matriz, e o padrão da equipe é "eSF <instância>".
+    <instância>_<k> e compartilham grafo e matriz. Sem nomes explícitos, a equipe é "eSF <bairro>" (com
+    "(N ACS)" numa instância de equipe) e cada ACS recebe um nome fictício (core.nomes).
     """
     path = Path(path)
     if not (path / "meta.json").exists():
@@ -76,13 +78,15 @@ def importar_instancia(path: str | Path, equipe: str | None = None, agente: str 
     if ubs_nome and ubs.nome != ubs_nome:
         ubs.nome = ubs_nome
         ubs.save(update_fields=["nome"])
-    padrao = f"eSF {nome}" if equipe_meta else f"eSF {bairros[0] if bairros else nome}"
+    n_acs = len(equipe_meta["microareas"]) if equipe_meta else 1
+    padrao = nome_equipe(bairros[0] if bairros else nome, n_acs)
     equipe_obj, _ = Equipe.objects.get_or_create(ubs=ubs, nome=equipe or padrao)
 
     base = data_base or files.data_base
+    usados = set(Agente.objects.filter(microarea__equipe=equipe_obj).values_list("nome", flat=True))
     if not equipe_meta:
         return [_importar_microarea(files, base, nome, equipe_obj, _poligono(path), mi, list(visits.index[1:]),
-                                    agente or f"ACS {nome}", explicit_agent=agente is not None)]
+                                    agente or nome_ficticio(nome, usados), explicit_agent=agente is not None)]
     if "microarea" not in visits.columns:
         raise ImportacaoError(f"{path}: meta.json descreve uma equipe, mas visits não tem a coluna microarea")
     polys = _poligonos_equipe(path)
@@ -91,7 +95,7 @@ def importar_instancia(path: str | Path, equipe: str | None = None, agente: str 
         k = int(info["id"])
         codigos = [i for i in visits.index[1:] if int(visits.at[i, "microarea"]) == k]
         out.append(_importar_microarea(files, base, f"{nome}_{k}", equipe_obj, polys.get(k), info, codigos,
-                                       f"{agente} {k}" if agente else f"ACS {nome} {k}",
+                                       f"{agente} {k}" if agente else nome_ficticio(f"{nome}_{k}", usados),
                                        explicit_agent=agente is not None))
     return out
 

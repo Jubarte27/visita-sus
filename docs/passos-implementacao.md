@@ -85,6 +85,8 @@ O gerador (`generator.py`, feito pelo Eduardo) é o ponto de partida e é ajusta
 | D6 | Urgentes graves e teto `K` | Contam no `K`, mas são obrigatórias. O `K` limita só as graves não urgentes. | a confirmar |
 | D7 | β e γ | β = 30, γ = 20 (calibrados no P16, ver [resultados.md](resultados.md)). ALNS: destruição 20–50%, T0 = 200, resfriamento 0,999. | adotada |
 | D8 | Dias desde a última visita | O banco guarda `ultima_visita` (data). O `d` é calculado para a data do plano. | adotada |
+| D9 | Nomes de exibição | ACS com nomes fictícios e microáreas como "Microárea 02 · Bom Jesus" (`Microarea.rotulo`); equipe padrão "eSF <bairro> (N ACS)". `Microarea.nome` e `Equipe.nome` continuam sendo as chaves da importação. Bancos antigos: `manage.py nomes_ficticios`. | adotada |
+| D10 | Paralelismo | Pool de processos compartilhado (`services.pool()`): os ACS de uma equipe e as requisições simultâneas de ACS diferentes rodam em paralelo. O painel planeja um ACS por requisição, para mostrar o progresso de cada card. | adotada |
 
 ---
 
@@ -778,6 +780,7 @@ Implementados no P08 em [backend/core/models.py](../backend/core/models.py).
 | P10 | GET | `/api/equipes/`, `/api/equipes/{id}/` | Equipes, UBS, microáreas e agentes |
 | P10 | POST | `/api/equipes/{id}/planejar/` | `{data, metodo, params?}` → todos os ACS |
 | P10 | GET | `/api/equipes/{id}/relatorio/?data=` | Relatório por microárea |
+| pós-MVP | GET | `/api/equipes/{id}/relatorio.csv?data=` | Relatório em CSV (uma linha por microárea + total) |
 | P15 | POST | `/api/planos/{id}/comparar/` | Guloso × ALNS × MILP |
 | P18 | POST | `/api/planos/{id}/urgencia/` | `{domicilio, apos_ordem}` |
 
@@ -842,18 +845,30 @@ Implementados no P08 em [backend/core/models.py](../backend/core/models.py).
 }
 ```
 
+Campos acrescentados depois do P10, para a gestão (a penalidade em minutos equivalentes virou detalhe técnico):
+- **linha:** `prioritarios` (urgentes ou atrasados), `prioritarios_fora`, `atrasados_visitados`, `em_dia_sem_visita`
+  (visitados + atrasados sem visita + em dia sem visita = domicílios), `cobertura_atrasados` (fração dos atrasados
+  visitados; `null` sem atrasados), `dias_atraso_fora` (Σ max(0, d − P) dos atrasados sem visita), `situacao`
+  (`ok` | `atencao` | `sobrecarga` | `sem_plano`) e `resumo_situacao` (frase curta). Em `atencao`: sem alerta, mas
+  com hora extra ou com atrasados sem visita acima de metade do limiar;
+- **total:** os mesmos somatórios, mais `acs_com_hora_extra`, `excesso_max_min`, `caminhada_media_min` e
+  `cobertura_atrasados`. O `excesso_min` e o `caminhada_min` somados continuam no total, mas a tela mostra os novos;
+- **raiz:** `resumo`, frase para o topo do relatório (quantas microáreas dão conta do dia, quais precisam de reforço
+  e por quê, cobertura dos atrasados, microáreas sem plano).
+
 `POST /api/equipes/{id}/planejar/` recebe `{data, metodo, params?}` e devolve `{equipe, data, metodo, planos: [plano resumido, …]}`. `GET /api/equipes/` e `/api/equipes/{id}/` trazem a UBS e as microáreas, cada uma com o nº de domicílios e o agente com seus parâmetros.
 
 ## Apêndice F: telas
 
-1. **Painel da equipe** (`/equipes/:id`): data, método, "Planejar dia". Um card por ACS com visitas, caminhada, jornada/excesso, não atendidas e penalidade residual, com link para o plano.
+0. **Início** (`/`): um card por equipe com a situação do dia (frase-resumo do relatório, microáreas em sobrecarga) e atalhos para o painel e o relatório.
+1. **Painel da equipe** (`/equipes/:id`): "Planejar dia" (uma requisição por ACS, com progresso em cada card). Um card por ACS com selo de situação, visitas, atrasados sem visita, volta à UBS e barra de jornada, com link para o plano. Método e parâmetros ficam em "Opções avançadas".
 2. **Plano do ACS** (`/planos/:id`):
-   - **mapa:** polígono da microárea, rota (polilinha), marcadores numerados coloridos por `w` (paleta do `mapa.html`: verde → vinho), borda grossa para urgentes, não atendidas esmaecidas ou em X, e UBS destacada;
-   - **lateral:** itinerário com horários e motivo; clicar centraliza o marcador. Lista de não atendidas com o motivo;
-   - **camadas:** malha a pé, demais domicílios, não atendidas;
-   - **conferência:** barra de jornada `T`/`Tmax` e selos "urgências primeiro ✓" e "graves ≤ K ✓";
+   - **mapa:** polígono da microárea, rota com setas no sentido do percurso, marcadores numerados coloridos pelo risco (paleta do `mapa.html`: verde → vinho), borda grossa para urgentes, não atendidas em X, UBS destacada e legenda recolhível com texto; popups em linguagem simples, com a janela em horário real;
+   - **lateral:** números do dia, linha do tempo (visitas, caminhadas, esperas, fim da jornada e hora extra), itinerário em linguagem natural ("risco alto", "última visita há 45 dias (máx. 30)", "atrasado 15 dias"); passar o ponteiro numa visita destaca a parada no mapa, clicar centraliza;
+   - **conferência:** selos com a regra explicada no tooltip e, se houver, a lista de regras descumpridas por extenso;
+   - **detalhes técnicos:** objetivo, penalidade, sementes e comparação de métodos numa aba à parte;
    - **exportação:** CSV e GPX.
-3. **Relatório da equipe** (`/equipes/:id/relatorio?data=`): tabela do Apêndice E, barras de penalidade residual e de excesso, microáreas sobrecarregadas em destaque.
+3. **Relatório da equipe** (`/equipes/:id/relatorio?data=`): frase-resumo no topo; indicadores (microáreas em sobrecarga, visitas e cobertura dos atrasados, atrasados e urgências sem visita, dias de atraso acumulados, ACS com hora extra); barras empilhadas com a composição dos domicílios de cada microárea (visitados / atrasados sem visita / em dia sem visita) e barras de hora extra (só quando houver); tabela compacta com selo de situação e linha de detalhes expansível; exportação em CSV e impressão/PDF; nota em linguagem simples, com as fórmulas em "Como calculamos".
 4. **Comparação de métodos** (opcional, P15): guloso × ALNS × MILP lado a lado, com as rotas sobrepostas.
 
 ## Apêndice G: métricas de validação

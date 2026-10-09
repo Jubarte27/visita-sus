@@ -5,24 +5,38 @@
 }
 
 .barra {
-  gap: 12px;
+  gap: var(--esp-3);
   flex-wrap: wrap;
   height: auto;
   min-height: 64px;
-  padding: 6px 16px;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
+  padding: var(--esp-2) var(--esp-5);
+  background: var(--mat-sys-surface-container-low);
+  color: var(--mat-sys-on-surface);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 
 .marca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 500;
   color: inherit;
   text-decoration: none;
   margin-right: 8px;
+  mat-icon { padding: 6px; border-radius: 50%; background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); }
+  .nome { display: flex; flex-direction: column; line-height: 1.1; font-size: 18px; color: var(--mat-sys-primary); }
+  small { font-size: 11px; font-weight: 400; color: var(--mat-sys-on-surface-variant); }
 }
 
 .campo { width: 260px; }
 .campo.data { width: 170px; }
+
+@media (max-width: 700px) {
+  .marca small { display: none; }
+  .campo { flex: 1 1 100%; width: auto; }
+  .campo.data { flex: 1 1 140px; }
+  .espaco { display: none; }
+}
 .espaco { flex: 1; }
 .ativo { background: color-mix(in srgb, currentColor 12%, transparent); }
 
@@ -30,4 +44,10 @@ main {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+// impressão: a página inteira flui em várias folhas (sem a rolagem interna do main)
+@media print {
+  :host { display: block; height: auto; }
+  main { overflow: visible; }
 }

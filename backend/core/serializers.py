@@ -38,7 +38,7 @@ class MicroareaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Microarea
-        fields = ["id", "nome", "equipe", "ubs", "agente", "setores", "bairros", "area_km2", "moradores_censo",
+        fields = ["id", "nome", "rotulo", "equipe", "ubs", "agente", "setores", "bairros", "area_km2", "moradores_censo",
                   "domicilios_censo", "n_domicilios", "poligono"]
 
     def get_equipe(self, m):
@@ -96,7 +96,8 @@ class EquipeSerializer(serializers.ModelSerializer):
         out = []
         for m in e.microareas.select_related("agente").order_by("nome"):
             a = getattr(m, "agente", None)
-            out.append({"id": m.pk, "nome": m.nome, "area_km2": m.area_km2, "n_domicilios": m.domicilios.count(),
+            out.append({"id": m.pk, "nome": m.nome, "rotulo": m.rotulo, "area_km2": m.area_km2,
+                        "n_domicilios": m.domicilios.count(),
                         "agente": AgenteSerializer(a).data if a else None})
         return out
 
@@ -200,7 +201,7 @@ class PlanoSerializer(serializers.ModelSerializer):
             out.append({
                 "domicilio": d.pk, "codigo": d.codigo, "lat": d.lat, "lon": d.lon, "condicao": d.condicao,
                 "motivo": n.motivo, "w": d.peso, "urgente": d.urgente, "grave": d.grave, "penalidade": n.penalidade,
-                "dias_sem_visita": n.dias_sem_visita, "atraso_dias": n.atraso_dias,
+                "dias_sem_visita": n.dias_sem_visita, "atraso_dias": n.atraso_dias, "P": d.intervalo_max_dias,
             })
         return out
 

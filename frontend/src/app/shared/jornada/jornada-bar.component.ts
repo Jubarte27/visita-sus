@@ -7,7 +7,7 @@ import { relogio } from '../../core/plano-utils';
   selector: 'app-jornada-bar',
   template: `
     <div class="barra" [title]="'retorno à UBS às ' + fim()">
-      <div class="usado" [class.excesso]="H() > T()" [style.width.%]="pct(H())"></div>
+      <div class="usado" [class.excesso]="H() - T() >= 1" [style.width.%]="pct(H())"></div>
       <div class="marca" [style.left.%]="pct(T())" title="jornada nominal T"></div>
     </div>
     <div class="rotulos">
@@ -17,9 +17,10 @@ import { relogio } from '../../core/plano-utils';
   `,
   styles: `
     .barra { position: relative; height: 14px; border-radius: 7px; background: var(--mat-sys-surface-container-high); overflow: hidden; }
-    .usado { height: 100%; background: #2e7d32; }
-    .usado.excesso { background: linear-gradient(90deg, #2e7d32 0, #2e7d32 var(--t, 85%), #ef6c00 var(--t, 85%)); }
-    .marca { position: absolute; top: 0; bottom: 0; width: 2px; background: #000; }
+    .usado { height: 100%; background: var(--vs-serie); }
+    .usado.excesso { background: linear-gradient(90deg, var(--vs-serie) 0, var(--vs-serie) var(--t, 85%),
+      var(--vs-aviso) var(--t, 85%)); }
+    .marca { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--vs-texto); }
     .rotulos { display: flex; justify-content: space-between; font-size: 11px; margin-top: 2px;
       color: var(--mat-sys-on-surface-variant); }
     b { color: var(--mat-sys-on-surface); }

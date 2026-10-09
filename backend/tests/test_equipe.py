@@ -39,7 +39,8 @@ def test_planejar_a_equipe(client, equipe):
     assert r.status_code == 201, r.json()
     d = r.json()
     assert d["data"] == DATA and d["metodo"] == "alns" and len(d["planos"]) == 2
-    assert [p["agente"]["nome"] for p in d["planos"]] == ["ACS a", "ACS b"]
+    nomes = [p["agente"]["nome"] for p in d["planos"]]
+    assert len(set(nomes)) == 2 and not any(n.startswith("ACS ") for n in nomes)
     assert Plano.objects.count() == 2
     lista = client.get(f"/api/planos/?equipe={equipe.pk}&data={DATA}").json()
     assert sorted(p["id"] for p in lista) == sorted(p["id"] for p in d["planos"])
@@ -52,6 +53,29 @@ def test_planejar_em_paralelo(client, equipe, settings):
     settings.PLANEJAMENTO_PARALELO = False
     sequencial = planejar(client, equipe, metodo="guloso", params={}).json()["planos"]
     assert [(p["visitas"], p["objetivo"]) for p in paralelo] == [(p["visitas"], p["objetivo"]) for p in sequencial]
+
+
+def test_planejar_um_acs_no_pool(client, equipe, settings):
+    """O painel planeja um ACS por requisição; com o paralelismo ligado, o solver roda no pool compartilhado."""
+    ag = equipe.microareas.get(nome="a").agente
+    body = {"agente": ag.pk, "data": DATA, "metodo": "guloso"}
+    settings.PLANEJAMENTO_PARALELO = True
+    no_pool = client.post("/api/planos/", body, content_type="application/json").json()
+    settings.PLANEJAMENTO_PARALELO = False
+    local = client.post("/api/planos/", body, content_type="application/json").json()
+    assert no_pool["metricas"]["objetivo"] == local["metricas"]["objetivo"]
+    assert [i["domicilio"] for i in no_pool["itens"]] == [i["domicilio"] for i in local["itens"]]
+
+
+def test_nomes_ficticios(equipe):
+    from django.core.management import call_command
+
+    from core.models import Agente
+    Agente.objects.update(nome="ACS antigo")
+    call_command("nomes_ficticios")
+    nomes = list(Agente.objects.values_list("nome", flat=True))
+    assert len(set(nomes)) == 2 and not any(n.startswith("ACS ") for n in nomes)
+    assert equipe.microareas.get(nome="a").rotulo == "Microárea 01 · Grade"
 
 
 def test_relatorio(client, equipe):
@@ -68,6 +92,50 @@ def test_relatorio(client, equipe):
     for campo in ["planejadas", "nao_atendidas", "candidatas", "domicilios", "excesso_min", "penalidade_residual_min"]:
         assert tot[campo] == pytest.approx(sum(row[campo] for row in r["linhas"]))
     assert (tot["microareas"], tot["com_plano"], tot["sem_plano"]) == (2, 2, 0)
+
+
+def test_relatorio_indicadores_para_a_gestao(client, equipe):
+    planejar(client, equipe, metodo="guloso", params={})
+    r = client.get(f"/api/equipes/{equipe.pk}/relatorio/?data={DATA}").json()
+    for row in r["linhas"]:
+        # composição: visitados + atrasados sem visita + em dia sem visita = domicílios
+        assert row["planejadas"] + row["atrasados_fora"] + row["em_dia_sem_visita"] == row["domicilios"]
+        assert row["atrasados_visitados"] + row["atrasados_fora"] == row["atrasados"]
+        assert row["cobertura_atrasados"] == pytest.approx(row["atrasados_visitados"] / row["atrasados"])
+        assert row["prioritarios_fora"] <= row["prioritarios"] and row["dias_atraso_fora"] >= 0
+        assert row["situacao"] in ("ok", "atencao") and row["resumo_situacao"]
+    tot = r["total"]
+    assert tot["acs_com_hora_extra"] == sum(row["excesso_min"] >= 1 for row in r["linhas"])
+    assert tot["excesso_max_min"] == max(row["excesso_min"] for row in r["linhas"])
+    assert tot["caminhada_media_min"] == pytest.approx(tot["caminhada_min"] / 2)
+    assert tot["cobertura_atrasados"] == pytest.approx(tot["atrasados_visitados"] / tot["atrasados"])
+    assert r["resumo"].startswith("As 2 microáreas com plano dão conta da demanda do dia.")
+    assert "cobrem" in r["resumo"]
+
+
+def test_relatorio_resumo_aponta_reforco(client, equipe, settings):
+    planejar(client, equipe, metodo="guloso", params={})
+    settings.RELATORIO_LIMIARES = {"excesso_min": 30, "fracao_atrasados_fora": 0.0}
+    r = client.get(f"/api/equipes/{equipe.pk}/relatorio/?data={DATA}").json()
+    sobrecarga = [row for row in r["linhas"] if row["atrasados_fora"] > 0]
+    assert all(row["situacao"] == "sobrecarga" for row in sobrecarga)
+    if sobrecarga:
+        assert "de reforço: a, com " in r["resumo"]
+    vazio = client.get(f"/api/equipes/{equipe.pk}/relatorio/?data=2026-12-01").json()
+    assert vazio["resumo"] == "Nenhum ACS tem plano para esta data."
+    assert all(row["situacao"] == "sem_plano" for row in vazio["linhas"])
+
+
+def test_relatorio_csv(client, equipe):
+    planejar(client, equipe, metodo="guloso", params={})
+    resp = client.get(f"/api/equipes/{equipe.pk}/relatorio.csv?data={DATA}")
+    assert resp.status_code == 200 and resp["Content-Type"].startswith("text/csv")
+    assert f"relatorio_eSF_Grade_{DATA}.csv" in resp["Content-Disposition"]
+    linhas = resp.content.decode("utf-8-sig").splitlines()
+    assert linhas[0].startswith("microárea,ACS,situação")
+    assert len(linhas) == 1 + 2 + 1  # cabeçalho, duas microáreas, total
+    assert linhas[-1].startswith("Total da equipe,2 ACS")
+    assert client.get(f"/api/equipes/{equipe.pk}/relatorio.csv?data=ontem").status_code == 400
 
 
 def test_relatorio_usa_o_ultimo_plano_e_marca_sem_plano(client, equipe):

@@ -1,6 +1,11 @@
 <div class="pagina">
-  @if (relatorio.isLoading()) { <mat-progress-bar mode="indeterminate" /> }
-  @if (relatorio.error()) { <p class="erro">Não foi possível carregar o relatório. O backend está no ar?</p> }
+  @if (relatorio.isLoading()) { <mat-progress-bar mode="indeterminate" class="no-print" /> }
+  @if (relatorio.error()) {
+    <app-estado tipo="erro" icone="cloud_off" titulo="Não foi possível carregar o relatório"
+      texto="O backend parece fora do ar. Na pasta backend, rode .venv/bin/python manage.py runserver e tente de novo.">
+      <button mat-stroked-button (click)="relatorio.reload()"><mat-icon>refresh</mat-icon> Tentar de novo</button>
+    </app-estado>
+  }
 
   @if (relatorio.value(); as r) {
     @let t = r.total;
@@ -9,45 +14,64 @@
         <h1>Relatório · {{ r.equipe.nome }}</h1>
         <p class="sub">{{ r.ubs.nome }} · {{ r.data | date: 'dd/MM/yyyy' }} · último plano de cada ACS na data</p>
       </div>
-      <a mat-stroked-button [routerLink]="['/equipes', r.equipe.id]"><mat-icon>route</mat-icon> Painel / planejar</a>
+      <div class="acoes no-print">
+        <a mat-stroked-button [href]="csv()" download><mat-icon>table_view</mat-icon> CSV</a>
+        <button mat-stroked-button (click)="imprimir()"><mat-icon>print</mat-icon> Imprimir / PDF</button>
+        <a mat-stroked-button [routerLink]="['/equipes', r.equipe.id]"><mat-icon>route</mat-icon> Painel / planejar</a>
+      </div>
     </header>
 
-    @if (t['com_plano'] === 0) {
-      <p class="aviso">Nenhum ACS tem plano para esta data. Planeje o dia no <a [routerLink]="['/equipes', r.equipe.id]">painel</a>.</p>
-    }
+    <p class="resumo" [class.critico]="t.alertas > 0" [class.vazio]="t.com_plano === 0">
+      <span class="icone" aria-hidden="true">{{ t.com_plano === 0 ? 'ⓘ' : t.alertas > 0 ? '⚠' : '✓' }}</span>
+      <span>{{ r.resumo }}
+        @if (t.com_plano === 0) { <a class="no-print" [routerLink]="['/equipes', r.equipe.id]">Planejar o dia no painel.</a> }</span>
+    </p>
 
-    <section class="indicadores">
-      <div class="tile" [class.critico]="t['alertas'] > 0">
-        <span class="rotulo">Microáreas em sobrecarga</span>
-        <span class="valor">@if (t['alertas'] > 0) { <span class="icone">⚠</span> }{{ t['alertas'] }}
-          <small>de {{ t['microareas'] }}</small></span>
-      </div>
-      <div class="tile">
-        <span class="rotulo">Visitas planejadas</span>
-        <span class="valor">{{ t['planejadas'] }} <small>de {{ t['candidatas'] }} candidatas</small></span>
-      </div>
-      <div class="tile">
-        <span class="rotulo">Candidatas não atendidas</span>
-        <span class="valor">{{ t['nao_atendidas'] }}</span>
-      </div>
-      <div class="tile">
-        <span class="rotulo">Atrasados sem visita</span>
-        <span class="valor">{{ t['atrasados_fora'] }} <small>de {{ t['domicilios'] }} domicílios</small></span>
-      </div>
-      <div class="tile" [class.critico]="t['urgentes_fora'] > 0">
-        <span class="rotulo">Urgências sem visita</span>
-        <span class="valor">@if (t['urgentes_fora'] > 0) { <span class="icone">⚠</span> }{{ t['urgentes_fora'] }}</span>
-      </div>
-      <div class="tile">
-        <span class="rotulo">Excesso de jornada</span>
-        <span class="valor">{{ t['excesso_min'] | number: '1.0-0' }} <small>min no total</small></span>
-      </div>
-    </section>
+    @if (t.com_plano > 0) {
+      <section class="indicadores">
+        <div class="tile" [class.critico]="t.alertas > 0">
+          <span class="rotulo">Microáreas em sobrecarga</span>
+          <span class="valor">@if (t.alertas > 0) { <span class="icone">⚠</span> }{{ t.alertas }}
+            <small>de {{ t.microareas }}</small></span>
+        </div>
+        <div class="tile">
+          <span class="rotulo">Visitas no dia</span>
+          <span class="valor">{{ t.planejadas }}</span>
+          @if (t.cobertura_atrasados !== null) {
+            <small>cobrem {{ t.cobertura_atrasados | percent: '1.0-0' }} dos domicílios atrasados</small>
+          }
+        </div>
+        <div class="tile">
+          <span class="rotulo">Atrasados sem visita</span>
+          <span class="valor">{{ t.atrasados_fora }}</span>
+          <small>de {{ t.atrasados_fora + t.atrasados_visitados }} domicílios atrasados</small>
+        </div>
+        <div class="tile" [class.critico]="t.urgentes_fora > 0">
+          <span class="rotulo">Urgências sem visita</span>
+          <span class="valor">@if (t.urgentes_fora > 0) { <span class="icone">⚠</span> }{{ t.urgentes_fora }}</span>
+        </div>
+        <div class="tile">
+          <span class="rotulo">Dias de atraso acumulados</span>
+          <span class="valor">{{ t.dias_atraso_fora | number: '1.0-0' }}</span>
+          <small>somados nos atrasados sem visita</small>
+        </div>
+        <div class="tile">
+          <span class="rotulo">Hora extra</span>
+          @if (t.acs_com_hora_extra > 0) {
+            <span class="valor">{{ t.acs_com_hora_extra }} <small>de {{ t.com_plano }} ACS</small></span>
+            <small>máx. {{ t.excesso_max_min | number: '1.0-0' }} min num dia</small>
+          } @else {
+            <span class="valor">0 <small>ACS</small></span>
+            <small>todos voltam no horário</small>
+          }
+        </div>
+      </section>
 
-    @if (t['com_plano'] > 0) {
       <section class="graficos">
-        <app-barras titulo="Penalidade residual por microárea (min equivalentes)" [barras]="penalidade()" />
-        <app-barras titulo="Excesso de jornada por microárea (min)" [barras]="excesso()" [referencia]="limiarExcesso()" />
+        <app-composicao titulo="Domicílios de cada microárea no dia" [series]="series" [linhas]="composicao()" />
+        @if (t.acs_com_hora_extra > 0) {
+          <app-barras titulo="Hora extra por microárea (min)" [barras]="excesso()" [referencia]="limiarExcesso()" />
+        }
       </section>
     }
 
@@ -57,62 +81,96 @@
         <table>
           <thead>
             <tr>
-              <th>microárea</th><th>ACS</th><th class="num">domicílios</th><th class="num">atrasados</th>
-              <th class="num">candidatas</th><th class="num">planejadas</th><th>não atendidas</th>
-              <th class="num">atrasados sem visita</th><th class="num">urgências sem visita</th>
-              <th class="num">penalidade (min)</th><th class="num">caminhada</th><th class="num">retorno</th>
-              <th class="num">excesso</th><th></th>
+              <th>microárea</th><th class="opcional">ACS</th><th>situação</th><th class="num">visitas</th>
+              <th class="num">cobertura dos atrasados</th><th class="num">atrasados sem visita</th>
+              <th class="num">urgências sem visita</th><th class="num opcional">retorno</th><th class="no-print"></th>
             </tr>
           </thead>
           <tbody>
             @for (l of r.linhas; track l.microarea.id) {
+              @let aberta = abertas().has(l.microarea.id);
               <tr [class.alerta]="l.alerta_sobrecarga">
-                <td>
-                  <a [routerLink]="['/microareas', l.microarea.id]">{{ l.microarea.nome }}</a>
-                  @if (l.alerta_sobrecarga) {
-                    <div class="selo-alerta"><span class="icone">⚠</span> sobrecarga</div>
-                    <ul class="motivos">@for (m of l.motivos_alerta; track m) { <li>{{ m }}</li> }</ul>
-                  }
+                <td><a [routerLink]="['/microareas', l.microarea.id]">{{ l.microarea.rotulo }}</a></td>
+                <td class="opcional">{{ l.agente?.nome }}</td>
+                <td class="situacao-celula">
+                  <span class="situacao" [attr.data-s]="l.situacao">
+                    <span class="ic" aria-hidden="true">{{ situacao[l.situacao].icone }}</span>{{ situacao[l.situacao].rotulo }}</span>
+                  <span class="obs">{{ l.resumo_situacao }}</span>
                 </td>
-                <td>{{ l.agente?.nome }}</td>
-                <td class="num">{{ l.domicilios }}</td>
-                <td class="num">{{ l.atrasados }}</td>
                 @if (l.sem_plano) {
-                  <td colspan="9" class="sem-plano">sem plano nesta data</td>
-                  <td><a mat-button [routerLink]="['/equipes', r.equipe.id]">planejar</a></td>
+                  <td colspan="5" class="sem-plano">—</td>
+                  <td class="no-print"><a mat-button [routerLink]="['/equipes', r.equipe.id]">planejar</a></td>
                 } @else {
-                  <td class="num">{{ l.candidatas }}</td>
                   <td class="num"><b>{{ l.planejadas }}</b></td>
-                  <td>{{ l.nao_atendidas }} <small>{{ motivos(l.nao_atendidas_por_motivo) }}</small></td>
-                  <td class="num">{{ l.atrasados_fora }} <small>({{ l.atrasados_fora! / l.domicilios | percent: '1.0-0' }})</small></td>
+                  <td class="num">{{ l.cobertura_atrasados === null ? '—' : (l.cobertura_atrasados | percent: '1.0-0') }}
+                    <small>({{ l.atrasados_visitados }} de {{ l.atrasados }})</small></td>
+                  <td class="num">{{ l.atrasados_fora }}</td>
                   <td class="num" [class.critico]="l.urgentes_fora! > 0">{{ l.urgentes_fora }}</td>
-                  <td class="num">{{ l.penalidade_residual_min | number: '1.0-0' }}</td>
-                  <td class="num">{{ l.caminhada_min | number: '1.0-0' }} min</td>
-                  <td class="num">{{ l.retorno }}</td>
-                  <td class="num" [class.critico]="l.excesso_min! > r.limiares.excesso_min">{{ l.excesso_min | number: '1.0-0' }} min</td>
-                  <td><a mat-button [routerLink]="['/planos', l.plano!.id]">plano</a></td>
+                  <td class="num opcional">{{ l.retorno }}@if (l.excesso_min! >= 1) {
+                    <small [class.critico]="l.excesso_min! > r.limiares.excesso_min"> +{{ l.excesso_min | number: '1.0-0' }} min</small> }</td>
+                  <td class="no-print acoes-linha">
+                    <button mat-button (click)="alternar(l.microarea.id)" [attr.aria-expanded]="aberta">
+                      {{ aberta ? 'menos' : 'detalhes' }}</button>
+                    <a mat-button [routerLink]="['/planos', l.plano!.id]">plano</a>
+                  </td>
                 }
               </tr>
+              @if (aberta && !l.sem_plano) {
+                <tr class="detalhes">
+                  <td colspan="9">
+                    <dl>
+                      <dt>domicílios</dt><dd>{{ l.domicilios }} ({{ l.atrasados }} atrasados)</dd>
+                      <dt>prioritários sem visita</dt><dd>{{ l.prioritarios_fora }} de {{ l.prioritarios }}
+                        <small>urgentes ou atrasados</small></dd>
+                      <dt>dias de atraso acumulados</dt><dd>{{ l.dias_atraso_fora | number: '1.0-0' }}</dd>
+                      <dt>candidatas do dia</dt><dd>{{ l.candidatas }}: {{ l.planejadas }} visitadas, {{ l.nao_atendidas }}
+                        não atendidas <small>{{ motivos(l.nao_atendidas_por_motivo) }}</small></dd>
+                      <dt>caminhada</dt><dd>{{ l.caminhada_min | number: '1.0-0' }} min</dd>
+                      <dt>hora extra</dt><dd>{{ l.excesso_min | number: '1.0-0' }} min</dd>
+                      <dt>penalidade residual</dt><dd>{{ l.penalidade_residual_min | number: '1.0-0' }} min equivalentes
+                        <small>(detalhe técnico)</small></dd>
+                    </dl>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
           <tfoot>
             <tr>
-              <td>Total da equipe</td><td>{{ t['microareas'] }} ACS</td>
-              <td class="num">{{ t['domicilios'] }}</td><td class="num">{{ t['atrasados'] }}</td>
-              <td class="num">{{ t['candidatas'] }}</td><td class="num">{{ t['planejadas'] }}</td>
-              <td>{{ t['nao_atendidas'] }} <small>{{ motivos(t.nao_atendidas_por_motivo) }}</small></td>
-              <td class="num">{{ t['atrasados_fora'] }}</td><td class="num">{{ t['urgentes_fora'] }}</td>
-              <td class="num">{{ t['penalidade_residual_min'] | number: '1.0-0' }}</td>
-              <td class="num">{{ t['caminhada_min'] | number: '1.0-0' }} min</td><td></td>
-              <td class="num">{{ t['excesso_min'] | number: '1.0-0' }} min</td><td></td>
+              <td>Total da equipe</td><td class="opcional">{{ t.microareas }} ACS</td>
+              <td>@if (t.alertas > 0) { {{ t.alertas }} em sobrecarga } @else if (t.com_plano > 0) { nenhuma em sobrecarga }
+                @if (t.sem_plano > 0) { <small> · {{ t.sem_plano }} sem plano</small> }</td>
+              <td class="num">{{ t.planejadas }}</td>
+              <td class="num">{{ t.cobertura_atrasados === null ? '—' : (t.cobertura_atrasados | percent: '1.0-0') }}</td>
+              <td class="num">{{ t.atrasados_fora }}</td>
+              <td class="num">{{ t.urgentes_fora }}</td>
+              <td class="num opcional">@if (t.acs_com_hora_extra > 0) { <small>{{ t.acs_com_hora_extra }} com hora extra</small> }</td>
+              <td class="no-print"></td>
             </tr>
           </tfoot>
         </table>
       </div>
-      <p class="nota">Sobrecarga: excesso de jornada acima de {{ r.limiares.excesso_min }} min, urgência sem visita ou mais de
-        {{ r.limiares.fracao_atrasados_fora | percent }} dos domicílios atrasados sem visita. Penalidade residual em minutos
-        equivalentes = β · Σ w·(d+1)/P das candidatas que ficaram de fora. A decisão de reforçar a equipe ou rever as
-        microáreas é da gestão.</p>
+
+      <div class="nota">
+        <p><b>Como ler:</b> um domicílio <b>atrasado</b> é aquele que, amanhã, terá passado do intervalo máximo entre
+          visitas recomendado para a sua condição. A <b>cobertura dos atrasados</b> é a parte deles que foi visitada no dia.
+          Uma microárea fica em <b>sobrecarga</b> quando há urgência sem visita, hora extra acima de
+          {{ r.limiares.excesso_min }} min, ou mais de {{ r.limiares.fracao_atrasados_fora | percent }} dos domicílios
+          atrasados sem visita. Em <b>atenção</b>, quando há hora extra ou atrasados sem visita acima da metade desse
+          limite. A decisão de reforçar a equipe ou rever as microáreas é da gestão.</p>
+        <details #comoCalculamos>
+          <summary>ⓘ Como calculamos</summary>
+          <ul>
+            <li>Atrasado: dias desde a última visita + 1 &gt; intervalo máximo (P) da condição.</li>
+            <li>Prioritários: urgentes ou atrasados. Dias de atraso acumulados: soma de max(0, dias sem visita − P)
+              dos atrasados que ficaram sem visita.</li>
+            <li>Candidatas do dia: todas as urgências mais os domicílios de maior penalidade, entre os quais o
+              otimizador escolhe as visitas.</li>
+            <li>Penalidade residual (min equivalentes): β · Σ w·(d+1)/P das candidatas que ficaram de fora, em que w é o
+              peso clínico e d os dias sem visita. É o termo da função objetivo que o planejamento minimiza.</li>
+          </ul>
+        </details>
+      </div>
     </section>
   }
 </div>

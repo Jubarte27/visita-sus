@@ -59,15 +59,15 @@ const LARGURA = 560;
   `,
   styles: `
     :host {
-      --serie: #2a78d6;
-      --critico: #d03b3b;
-      --texto: #0b0b0b;
-      --texto-2: #52514e;
-      --grade: #d8d7d3;
+      --serie: var(--vs-serie);
+      --critico: var(--vs-critico);
+      --texto: var(--vs-texto);
+      --texto-2: var(--vs-texto-2);
+      --grade: var(--vs-grade);
       display: block;
     }
     figure { position: relative; margin: 0; }
-    figcaption { font-weight: 500; margin-bottom: 6px; color: var(--texto); }
+    figcaption { font-weight: 500; margin-bottom: var(--esp-3); color: var(--texto); }
     svg { width: 100%; max-width: 560px; height: auto; overflow: visible; font: 12px Roboto, sans-serif; }
     .alvo { fill: transparent; }
     .linha { outline: none; cursor: default; }

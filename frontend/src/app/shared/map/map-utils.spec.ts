@@ -2,7 +2,9 @@ import type { Feature, Point } from 'geojson';
 import { describe, expect, it } from 'vitest';
 
 import { DomicilioProps } from '../../core/models';
-import { agruparPorPonto, corDoPeso, nomeCondicao, popupDoPonto, raioDoPonto } from './map-utils';
+import {
+  agruparPorPonto, comprimentoM, corDoPeso, janelaHorario, nomeCondicao, popupDoPonto, raioDoPonto, setasDaRota,
+} from './map-utils';
 
 function dom(codigo: number, node: number, extra: Partial<DomicilioProps> = {}): Feature<Point, DomicilioProps> {
   return {
@@ -44,16 +46,40 @@ describe('map-utils', () => {
     expect(raioDoPonto(5)).toBeGreaterThan(raioDoPonto(2));
   });
 
-  it('popup ordena por penalidade e escapa texto', () => {
+  it('popup em cartões, mais prioritários primeiro, com texto escapado e horário real', () => {
     const [g] = agruparPorPonto([
       dom(1, 10, { penalidade: 0.2 }),
-      dom(2, 10, { penalidade: 3.1, condicao: '<b>x</b>', tw_inicio: 180, tw_fim: 360 }),
+      dom(2, 10, { penalidade: 3.1, condicao: '<b>x</b>', tw_inicio: 180, tw_fim: 360, w: 3, dias_sem_visita: 45,
+        atrasado: true, urgente: true }),
     ]);
-    const html = popupDoPonto(g);
-    expect(html.indexOf('>2<')).toBeLessThan(html.indexOf('>1<'));
+    const html = popupDoPonto(g, '08:00:00');
+    expect(html.indexOf('#2<')).toBeLessThan(html.indexOf('#1<'));
     expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');
-    expect(html).toContain('180–360 min');
-    expect(html).toContain('2 domicílio(s)');
+    expect(html).toContain('tarde (11:00–14:00)');
+    expect(html).toContain('aria-label="risco alto"');
+    expect(html).toContain('+15 dias');
+    expect(html).toContain('data-estado="atrasado"');
+    expect(html).toContain('urgente');
+    expect(html).toContain('2 domicílio(s) neste ponto · 1 atrasado(s)');
+    const muitos = agruparPorPonto(Array.from({ length: 11 }, (_, i) => dom(i + 1, 10)));
+    expect(popupDoPonto(muitos[0])).toContain('+ 3 domicílio(s) de menor prioridade');
+  });
+
+  it('janela de atendimento em horário real', () => {
+    expect(janelaHorario(0, 420)).toBe('qualquer horário');
+    expect(janelaHorario(0, 180, '08:00:00')).toBe('manhã (08:00–11:00)');
+    expect(janelaHorario(180, 360, '07:30:00')).toBe('tarde (10:30–13:30)');
+  });
+
+  it('setas ao longo da rota, no sentido do percurso', () => {
+    // ~111 m para o leste e depois ~111 m para o norte (no equador)
+    const rota = [[0, 0], [0.001, 0], [0.001, 0.001]];
+    expect(comprimentoM(rota)).toBeCloseTo(221.9, 0);
+    const setas = setasDaRota(rota, 100);
+    expect(setas).toHaveLength(2); // em 50 m e em 150 m
+    expect(setas[0].angulo).toBeCloseTo(0); // leste
+    expect(setas[1].angulo).toBeCloseTo(-90); // norte (para cima na tela)
+    expect(setas[0].lon).toBeCloseTo(0.000449, 5);
   });
 
   it('nomes de condição legíveis', () => {

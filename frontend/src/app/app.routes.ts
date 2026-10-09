@@ -1,17 +1,27 @@
 import { Routes } from '@angular/router';
 
-import { InicioPage } from './pages/inicio/inicio.page';
-import { MicroareaPage } from './pages/microarea/microarea.page';
-import { PainelEquipePage } from './pages/painel-equipe/painel-equipe.page';
-import { PlanoPage } from './pages/plano/plano.page';
-import { RelatorioPage } from './pages/relatorio/relatorio.page';
-
-// telas do Apêndice F de docs/passos-implementacao.md
+// telas do Apêndice F de docs/passos-implementacao.md; cada uma carregada sob demanda (o Leaflet só vem com o mapa)
 export const routes: Routes = [
-  { path: '', component: InicioPage, title: 'visita-sus' },
-  { path: 'equipes/:id', component: PainelEquipePage, title: 'Painel da equipe · visita-sus' },
-  { path: 'equipes/:id/relatorio', component: RelatorioPage, title: 'Relatório da equipe · visita-sus' },
-  { path: 'microareas/:id', component: MicroareaPage, title: 'Microárea · visita-sus' },
-  { path: 'planos/:id', component: PlanoPage, title: 'Plano do ACS · visita-sus' },
+  { path: '', loadComponent: () => import('./pages/inicio/inicio.page').then((m) => m.InicioPage), title: 'visita-sus' },
+  {
+    path: 'equipes/:id',
+    loadComponent: () => import('./pages/painel-equipe/painel-equipe.page').then((m) => m.PainelEquipePage),
+    title: 'Painel da equipe · visita-sus',
+  },
+  {
+    path: 'equipes/:id/relatorio',
+    loadComponent: () => import('./pages/relatorio/relatorio.page').then((m) => m.RelatorioPage),
+    title: 'Relatório da equipe · visita-sus',
+  },
+  {
+    path: 'microareas/:id',
+    loadComponent: () => import('./pages/microarea/microarea.page').then((m) => m.MicroareaPage),
+    title: 'Microárea · visita-sus',
+  },
+  {
+    path: 'planos/:id',
+    loadComponent: () => import('./pages/plano/plano.page').then((m) => m.PlanoPage),
+    title: 'Plano do ACS · visita-sus',
+  },
   { path: '**', redirectTo: '' },
 ];

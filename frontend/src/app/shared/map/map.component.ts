@@ -12,8 +12,19 @@ import type { LineString, MultiPolygon, Polygon } from 'geojson';
 import * as L from 'leaflet';
 
 import { Domicilios, ItemRoteiro, Malha, NaoAtendida, Ubs } from '../../core/models';
-import { ROTULO_MOTIVO_NAO_ATENDIDA, ROTULO_MOTIVO_VISITA } from '../../core/plano-utils';
-import { CORES_W, agruparPorPonto, corDoPeso, nomeCondicao, popupDoPonto, raioDoPonto } from './map-utils';
+import { ROTULO_MOTIVO_NAO_ATENDIDA, ROTULO_MOTIVO_VISITA, ROTULO_RISCO, rotuloRisco } from '../../core/plano-utils';
+import {
+  CORES_W, agruparPorPonto, comprimentoM, corDoPeso, htmlIntervalo, htmlRisco, nomeCondicao, popupDoPonto,
+  raioDoPonto, setasDaRota,
+} from './map-utils';
+
+function chips(urgente: boolean, grave: boolean): string {
+  return (urgente ? '<span class="chip-mini urgente">urgente</span>' : '') + (grave ? '<span class="chip-mini">grave</span>' : '');
+}
+
+function iconeMaterial(nome: string, titulo: string): string {
+  return `<span class="material-icons" aria-label="${titulo}" title="${titulo}">${nome}</span>`;
+}
 
 const OSM_ATRIB = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
@@ -22,8 +33,9 @@ const OSM_ATRIB = '&copy; <a href="https://www.openstreetmap.org/copyright">Open
  *
  * Território: microárea (polígono), malha a pé, domicílios agrupados por ponto de acesso (cor = peso clínico w,
  * borda grossa = urgente, popup com os atributos) e UBS.
- * Plano (opcional): rota pela malha, paradas numeradas na ordem do roteiro e visitas não atendidas (×).
- * Com `esmaecerDomicilios`, os domicílios viram fundo ("demais domicílios").
+ * Plano (opcional): rota pela malha com setas no sentido do percurso, paradas numeradas na ordem do roteiro e
+ * visitas não atendidas (×). Com `esmaecerDomicilios`, os domicílios viram fundo ("demais domicílios").
+ * `destacar(chave)` realça uma parada (usado pela lista e pela linha do tempo).
  */
 @Component({
   selector: 'app-map',
@@ -44,6 +56,8 @@ export class MapComponent implements OnDestroy {
   readonly esmaecerDomicilios = input(false);
   /** Rota de outro método, sobreposta tracejada (comparação de métodos). */
   readonly rotaComparada = input<LineString | null>(null);
+  /** Início da jornada, para mostrar as janelas de atendimento em horário real. */
+  readonly horaInicio = input('08:00:00');
 
   private readonly el = viewChild.required<ElementRef<HTMLDivElement>>('el');
   /** Instância do Leaflet, disponível depois da primeira renderização. */
@@ -62,7 +76,12 @@ export class MapComponent implements OnDestroy {
   private controle?: L.Control.Layers;
   private readonly noControle = new Set<L.LayerGroup>();
   private readonly marcadores = new Map<string, L.Marker | L.CircleMarker>();
+  private destacado?: L.Marker;
   private enquadrado = false;
+  /** Limites da microárea, para reenquadrar quando o contêiner muda de tamanho (antes de o usuário mexer). */
+  private limites?: L.LatLngBounds;
+  private usuarioMexeu = false;
+  private observador?: ResizeObserver;
 
   constructor() {
     afterNextRender(() => this.criarMapa());
@@ -78,7 +97,8 @@ export class MapComponent implements OnDestroy {
           interactive: false,
         }).addTo(this.camadas.poligono);
         if (!this.enquadrado) {
-          mapa.fitBounds(camada.getBounds(), { padding: [20, 20] });
+          this.limites = camada.getBounds();
+          mapa.fitBounds(this.limites, { padding: [20, 20] });
           this.enquadrado = true;
         }
       }
@@ -98,6 +118,7 @@ export class MapComponent implements OnDestroy {
       const mapa = this.mapa();
       const fc = this.domicilios();
       const fundo = this.esmaecerDomicilios();
+      const horaInicio = this.horaInicio();
       if (!mapa) return;
       this.camadas.domicilios.clearLayers();
       for (const g of agruparPorPonto(fc?.features ?? [])) {
@@ -109,8 +130,8 @@ export class MapComponent implements OnDestroy {
           fillColor: corDoPeso(g.wMax),
           fillOpacity: fundo ? 0.3 : 0.85,
         })
-          .bindTooltip(`${g.domicilios.length} domicílio(s) · w máx ${g.wMax}${g.urgente ? ' · URGENTE' : ''}`)
-          .bindPopup(popupDoPonto(g), { maxWidth: 600 })
+          .bindTooltip(`${g.domicilios.length} domicílio(s) · ${rotuloRisco(g.wMax)}${g.urgente ? ' · urgente' : ''}`)
+          .bindPopup(popupDoPonto(g, horaInicio), { maxWidth: 360 })
           .addTo(this.camadas.domicilios);
       }
     });
@@ -122,9 +143,20 @@ export class MapComponent implements OnDestroy {
       this.camadas.rota.clearLayers();
       if (rota) {
         this.registrar(this.camadas.rota, 'rota');
-        L.geoJSON(rota, { style: { color: '#1565c0', weight: 4, opacity: 0.75 }, interactive: false }).addTo(
+        L.geoJSON(rota, { style: { color: '#2a78d6', weight: 4, opacity: 0.75 }, interactive: false }).addTo(
           this.camadas.rota,
         );
+        // setas no sentido do percurso, umas 25 ao longo da rota (no mínimo a cada 80 m)
+        const passo = Math.max(80, comprimentoM(rota.coordinates) / 25);
+        for (const s of setasDaRota(rota.coordinates, passo)) {
+          const icone = L.divIcon({
+            className: '',
+            html: `<div class="seta-rota" style="transform:rotate(${s.angulo.toFixed(0)}deg)">➤</div>`,
+            iconSize: [12, 12],
+            iconAnchor: [6, 6],
+          });
+          L.marker([s.lat, s.lon], { icon: icone, interactive: false, keyboard: false }).addTo(this.camadas.rota);
+        }
       }
     });
 
@@ -158,10 +190,13 @@ export class MapComponent implements OnDestroy {
         const marcador = L.marker([p.lat, p.lon], { icon: icone, zIndexOffset: 500 + p.ordem })
           .bindTooltip(`${p.ordem} · ${nomeCondicao(p.condicao)} · ${p.chegada}`)
           .bindPopup(
-            `<b>${p.ordem}ª visita · domicílio ${p.codigo}</b><br>${nomeCondicao(p.condicao)} · ` +
-              `${ROTULO_MOTIVO_VISITA[p.motivo]}${p.grave ? ' · grave' : ''}<br>` +
-              `chegada ${p.chegada}, atendimento ${p.inicio}–${p.fim}<br>` +
-              `w=${p.w} · ${p.dias_sem_visita}/${p.P} dias · caminhada ${p.caminhada_min.toFixed(1)} min`,
+            `<div class="popup-ponto"><div class="dom-card">` +
+              `<div class="t"><b>${p.ordem}ª visita · ${nomeCondicao(p.condicao)}</b>${htmlRisco(p.w)}` +
+              `${chips(p.urgente, p.grave)}<span class="cod">#${p.codigo}</span></div>` +
+              `<div>${htmlIntervalo(p.dias_sem_visita, p.P)}</div>` +
+              `<div class="m">${iconeMaterial('schedule', 'atendimento')}${p.inicio}–${p.fim}` +
+              `${iconeMaterial('directions_walk', 'caminhada desde a parada anterior')}${p.caminhada_min.toFixed(0)} min` +
+              `${iconeMaterial('flag', 'motivo')}${ROTULO_MOTIVO_VISITA[p.motivo]}</div></div></div>`,
           )
           .addTo(this.camadas.paradas);
         this.marcadores.set(`parada-${p.ordem}`, marcador);
@@ -186,11 +221,12 @@ export class MapComponent implements OnDestroy {
         const marcador = L.marker([n.lat, n.lon], { icon: icone })
           .bindTooltip(`${nomeCondicao(n.condicao)} · ${ROTULO_MOTIVO_NAO_ATENDIDA[n.motivo]}`)
           .bindPopup(
-            `<b>não atendida · domicílio ${n.codigo}</b><br>${nomeCondicao(n.condicao)}` +
-              `${n.urgente ? ' · <b>urgente</b>' : ''}${n.grave ? ' · grave' : ''}<br>` +
-              `motivo: ${ROTULO_MOTIVO_NAO_ATENDIDA[n.motivo]}<br>` +
-              `penalidade ${n.penalidade.toFixed(2)} · ${n.dias_sem_visita} dias sem visita` +
-              `${n.atraso_dias ? ` (${n.atraso_dias} além do intervalo)` : ''}`,
+            `<div class="popup-ponto"><div class="dom-card">` +
+              `<div class="t"><b>× ${nomeCondicao(n.condicao)}</b>${htmlRisco(n.w)}${chips(n.urgente, n.grave)}` +
+              `<span class="cod">#${n.codigo}</span></div>` +
+              `<div>${htmlIntervalo(n.dias_sem_visita, n.P)}</div>` +
+              `<div class="m">${iconeMaterial('block', 'por que ficou de fora')}ficou de fora: ` +
+              `${ROTULO_MOTIVO_NAO_ATENDIDA[n.motivo]}</div></div></div>`,
           )
           .addTo(this.camadas.naoAtendidas);
         this.marcadores.set(`fora-${n.domicilio}`, marcador);
@@ -228,7 +264,16 @@ export class MapComponent implements OnDestroy {
     m.openPopup();
   }
 
+  /** Realça a parada `parada-<ordem>` (ou tira o realce, com null). */
+  destacar(chave: string | null): void {
+    this.destacado?.getElement()?.classList.remove('destacada');
+    const m = chave ? this.marcadores.get(chave) : undefined;
+    this.destacado = m instanceof L.Marker ? m : undefined;
+    this.destacado?.getElement()?.classList.add('destacada');
+  }
+
   ngOnDestroy(): void {
+    this.observador?.disconnect();
     this.mapa()?.remove();
   }
 
@@ -265,10 +310,18 @@ export class MapComponent implements OnDestroy {
           [this.esmaecerDomicilios() ? 'demais domicílios' : 'domicílios']: c.domicilios,
           UBS: c.ubs,
         },
-        { collapsed: false },
+        { collapsed: window.innerWidth < 700 },
       )
       .addTo(mapa);
     this.legenda().addTo(mapa);
+    mapa.on('dragstart', () => (this.usuarioMexeu = true));
+    mapa.getContainer().addEventListener('wheel', () => (this.usuarioMexeu = true), { passive: true });
+    // o layout da página pode mudar a altura do mapa depois de ele nascer (ex.: no celular, a lista acima cresce)
+    this.observador = new ResizeObserver(() => {
+      mapa.invalidateSize();
+      if (this.limites && !this.usuarioMexeu) mapa.fitBounds(this.limites, { padding: [20, 20] });
+    });
+    this.observador.observe(this.el().nativeElement);
     this.mapa.set(mapa);
   }
 
@@ -276,10 +329,18 @@ export class MapComponent implements OnDestroy {
     const controle = new L.Control({ position: 'bottomleft' });
     controle.onAdd = () => {
       const div = L.DomUtil.create('div', 'legenda-mapa');
+      L.DomEvent.disableClickPropagation(div);
       const cores = Object.entries(CORES_W)
-        .map(([w, cor]) => `<span class="cor" style="background:${cor}"></span>${w}`)
+        .map(([w, cor]) => `<li><span class="cor" style="background:${cor}"></span>${ROTULO_RISCO[Number(w)]}</li>`)
         .join('');
-      div.innerHTML = `peso clínico w:${cores}<br>tamanho = nº de domicílios no ponto · borda grossa = urgente`;
+      const plano = this.esmaecerDomicilios()
+        ? `<li><span class="simbolo parada-mini">1</span>parada, na ordem do roteiro</li>
+           <li><span class="simbolo">×</span>visita que ficou de fora</li>
+           <li><span class="simbolo seta-mini">➤</span>sentido do percurso</li>`
+        : `<li><span class="simbolo">◯</span>círculo maior = mais domicílios no ponto</li>`;
+      div.innerHTML = `<details ${window.innerWidth > 700 ? 'open' : ''}><summary>Legenda</summary>
+        <ul><li class="sub">cor = risco do domicílio</li>${cores}${plano}
+        <li><span class="simbolo borda">◯</span>borda grossa = urgente</li></ul></details>`;
       return div;
     };
     return controle;

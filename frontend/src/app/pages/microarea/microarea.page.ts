@@ -7,13 +7,14 @@ import { RouterLink } from '@angular/router';
 
 import { SelecaoService } from '../../core/selecao.service';
 import { MicroareaService } from '../../core/services/microarea.service';
+import { EstadoComponent } from '../../shared/estado/estado.component';
 import { MapComponent } from '../../shared/map/map.component';
 import { CORES_W, corDoPeso, nomeCondicao } from '../../shared/map/map-utils';
 
 /** Mapa da microárea com os domicílios e seus atributos na data escolhida. */
 @Component({
   selector: 'app-microarea-page',
-  imports: [MapComponent, MatCardModule, MatProgressBarModule, DatePipe, DecimalPipe, PercentPipe, RouterLink],
+  imports: [MapComponent, EstadoComponent, MatCardModule, MatProgressBarModule, DatePipe, DecimalPipe, PercentPipe, RouterLink],
   templateUrl: './microarea.page.html',
   styleUrl: './microarea.page.scss',
 })

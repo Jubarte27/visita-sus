@@ -163,6 +163,20 @@ def plano_comparar(request, pk):
         return _instancia_ausente(plano.agente.microarea, e)
 
 
+def equipe_relatorio_csv(request, pk):
+    """Relatório da equipe em CSV (?data=AAAA-MM-DD, padrão hoje)."""
+    equipe = get_object_or_404(Equipe.objects.select_related("ubs"), pk=pk)
+    raw = request.GET.get("data")
+    try:
+        data = date.fromisoformat(raw) if raw else date.today()
+    except ValueError:
+        return HttpResponse("data: use o formato AAAA-MM-DD", status=400, content_type="text/plain; charset=utf-8")
+    rel = relatorio_service.relatorio(equipe, data)
+    resp = HttpResponse(relatorio_service.to_csv(rel).encode("utf-8-sig"), content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="{relatorio_service.nome_arquivo(rel)}"'
+    return resp
+
+
 def plano_csv(request, pk):
     plano = get_object_or_404(Plano.objects.select_related("agente__microarea__equipe__ubs"), pk=pk)
     body = export.to_csv(services.linhas_itinerario(plano))

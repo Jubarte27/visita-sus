@@ -30,6 +30,7 @@ export interface Agente extends Ref {
 }
 
 export interface MicroareaResumo extends Ref {
+  rotulo: string; // "Microárea 02 · Bom Jesus" (o `nome` é o da instância)
   area_km2: number | null;
   n_domicilios: number;
   agente: Agente | null;
@@ -41,6 +42,7 @@ export interface Equipe extends Ref {
 }
 
 export interface Microarea extends Ref {
+  rotulo: string;
   equipe: Ref;
   ubs: Ubs;
   agente: Ref | null;
@@ -156,6 +158,7 @@ export interface NaoAtendida {
   penalidade: number;
   dias_sem_visita: number;
   atraso_dias: number;
+  P: number;
 }
 
 export interface Violacao {
@@ -236,20 +239,28 @@ export interface PlanejarEquipeResposta {
   planos: PlanoResumo[];
 }
 
+export type SituacaoMicroarea = 'ok' | 'atencao' | 'sobrecarga' | 'sem_plano';
+
 export interface LinhaRelatorio {
-  microarea: Ref;
+  microarea: Ref & { rotulo: string };
   agente: Ref | null;
   plano: { id: number; metodo: Metodo; status: string } | null;
   sem_plano: boolean;
   domicilios: number;
   atrasados: number;
+  prioritarios: number; // urgentes ou atrasados
   candidatas?: number;
   planejadas?: number;
   nao_atendidas?: number;
   nao_atendidas_por_motivo?: Partial<Record<MotivoNaoAtendida, number>>;
   fora_das_candidatas?: number;
   atrasados_fora?: number;
+  atrasados_visitados?: number;
+  em_dia_sem_visita?: number;
+  cobertura_atrasados?: number | null; // fração dos atrasados visitados no dia
   urgentes_fora?: number;
+  prioritarios_fora?: number;
+  dias_atraso_fora?: number; // Σ max(0, d − P) dos atrasados sem visita
   penalidade_residual?: number;
   penalidade_residual_min?: number;
   caminhada_min?: number;
@@ -260,6 +271,37 @@ export interface LinhaRelatorio {
   retorno?: string;
   alerta_sobrecarga: boolean;
   motivos_alerta: string[];
+  situacao: SituacaoMicroarea;
+  resumo_situacao: string;
+}
+
+export interface TotalRelatorio {
+  microareas: number;
+  com_plano: number;
+  sem_plano: number;
+  alertas: number;
+  domicilios: number;
+  atrasados: number;
+  prioritarios: number;
+  candidatas: number;
+  planejadas: number;
+  nao_atendidas: number;
+  nao_atendidas_por_motivo: Partial<Record<MotivoNaoAtendida, number>>;
+  fora_das_candidatas: number;
+  atrasados_fora: number;
+  atrasados_visitados: number;
+  em_dia_sem_visita: number;
+  urgentes_fora: number;
+  prioritarios_fora: number;
+  dias_atraso_fora: number;
+  penalidade_residual_min: number;
+  caminhada_min: number;
+  jornada_usada_min: number;
+  excesso_min: number;
+  acs_com_hora_extra: number;
+  excesso_max_min: number;
+  caminhada_media_min: number | null;
+  cobertura_atrasados: number | null;
 }
 
 export interface Relatorio {
@@ -267,6 +309,7 @@ export interface Relatorio {
   ubs: Ubs;
   data: string;
   limiares: { excesso_min: number; fracao_atrasados_fora: number };
+  resumo: string;
   linhas: LinhaRelatorio[];
-  total: Record<string, number> & { nao_atendidas_por_motivo: Partial<Record<MotivoNaoAtendida, number>> };
+  total: TotalRelatorio;
 }

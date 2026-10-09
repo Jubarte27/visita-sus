@@ -8,6 +8,7 @@ urlpatterns = [
     path("equipes/<int:pk>/", views.EquipeDetail.as_view(), name="equipe-detail"),
     path("equipes/<int:pk>/planejar/", views.equipe_planejar, name="equipe-planejar"),
     path("equipes/<int:pk>/relatorio/", views.equipe_relatorio, name="equipe-relatorio"),
+    path("equipes/<int:pk>/relatorio.csv", views.equipe_relatorio_csv, name="equipe-relatorio-csv"),
     path("microareas/<int:pk>/", views.MicroareaDetail.as_view(), name="microarea-detail"),
     path("microareas/<int:pk>/domicilios/", views.microarea_domicilios, name="microarea-domicilios"),
     path("microareas/<int:pk>/malha/", views.microarea_malha, name="microarea-malha"),

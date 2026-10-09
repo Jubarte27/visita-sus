@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from core.importer import ImportacaoError, importar_instancia
 from core.models import Agente, Domicilio, Equipe, ItemRoteiro, Microarea, Plano, Ubs
+from core.nomes import nome_ficticio
 from tests.fixtures.mini_instance import HOUSEHOLDS, write_mini_instance
 
 pytestmark = pytest.mark.django_db
@@ -26,7 +27,8 @@ def test_importa_a_instancia(instances):
     assert (Ubs.objects.count(), Equipe.objects.count(), Microarea.objects.count(), Agente.objects.count()) == (1, 1, 1, 1)
     assert m.domicilios.count() == len(HOUSEHOLDS)
     assert m.instancia_dir == "mini" and m.path == path and (path / "matrix.npz").exists()
-    assert str(m.equipe) == "eSF Grade" and str(m.equipe.ubs) == "UBS Grade" and str(m.agente) == "ACS mini"
+    assert str(m.equipe) == "eSF Grade" and str(m.equipe.ubs) == "UBS Grade" and str(m.agente) == nome_ficticio("mini")
+    assert m.rotulo == "Microárea 01 · Grade"
     assert m.poligono["type"] == "Polygon" and m.bairros == ["Grade"] and m.area_km2 == 0.09
     assert m.ubs_node == 1
     ag = m.agente
@@ -120,8 +122,14 @@ def test_importa_equipe(instances, client):
     path = write_mini_instance(instances / "eq", equipe=True)
     ms = importar_instancia(path)
     assert [m.nome for m in ms] == ["eq_1", "eq_2"]
-    assert Equipe.objects.get().nome == "eSF eq" and {m.equipe_id for m in ms} == {Equipe.objects.get().pk}
-    assert [str(m.agente) for m in ms] == ["ACS eq 1", "ACS eq 2"]
+    equipe = Equipe.objects.get()
+    assert equipe.nome.startswith("eSF ") and equipe.nome.endswith(" (2 ACS)") and {m.equipe_id for m in ms} == {equipe.pk}
+    nomes = [str(m.agente) for m in ms]
+    assert len(set(nomes)) == 2 and not any(n.startswith("ACS ") for n in nomes)
+    assert [m.rotulo.split(" · ")[0] for m in ms] == ["Microárea 01", "Microárea 02"]
+    # reimportar acha a mesma equipe e mantém os nomes
+    importar_instancia(path)
+    assert Equipe.objects.count() == 1 and [str(m.agente) for m in Microarea.objects.order_by("nome")] == nomes
     assert sorted(ms[0].domicilios.values_list("codigo", flat=True)) == [1, 2, 5, 6]
     assert sorted(ms[1].domicilios.values_list("codigo", flat=True)) == [3, 4]
     assert all(m.instancia_dir == "eq" and m.ubs_node == 1 for m in ms)  # grafo e matriz compartilhados
